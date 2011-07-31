@@ -1,0 +1,13 @@
+Name: sandbox-json
+Version: 0.1.0
+License: BSD3
+License-File: LICENSE
+Synopsis: JSON pretty-printing library
+Description: A simple pretty-printer for JSON.
+Author: hnakamur@gmail.com
+Maintainer: hnakamur@gmail.com
+Cabal-Version: >= 1.2
+Build-Type: Simple
+Library
+  Exposed-Modules: SandBox.Data.JSON
+  Build-Depends: base >= 4.3, pretty >= 1.0
