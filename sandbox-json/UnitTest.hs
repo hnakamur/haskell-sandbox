@@ -8,14 +8,30 @@ main = do
     runTestTT tests
 
 tests = test
-    [ testParse "null" JNull
-    , testParse "false" (JBool False)
-    , testParse "true" (JBool True)
-    , testParse "\"\"" (JString "")
-    , testParse "{}" (JObject [])
-    , testParse "[]" (JArray [])
+    [ strings
     , numbers
+    , objects
+    , arrays
+    , testParse "true" (JBool True)
+    , testParse "null" JNull
+    , testParse "false" (JBool False)
     , errors
+    ]
+
+strings = test
+    [ testParse "\"\"" (JString "")
+    , testParse "\"f\"" (JString "f")
+    , testParse "\"foo\"" (JString "foo")
+    , testParse "\"\\\"foo\\\"\"" (JString "\"foo\"")
+    , testParse "\"\\\\\"" (JString "\\")
+    , testParse "\"\\/\"" (JString "/")
+    , testParse "\"\\b\"" (JString "\b")
+    , testParse "\"\\f\"" (JString "\f")
+    , testParse "\"\\n\"" (JString "\n")
+    , testParse "\"\\r\"" (JString "\r")
+    , testParse "\"\\t\"" (JString "\t")
+    , testParse "\"\\u1234\"" (JString "\x1234")
+    , testParse "\"\\uD950\\uDF21\"" (JString "\x64321")
     ]
 
 numbers = test
@@ -47,6 +63,32 @@ numbers = test
     , testParse "-1.23e-45" (JNumber (-1.23e-45))
     ]    
 
+objects = test
+    [ testParse "{}" (JObject [])
+    , testParse "{\"k1\":true}" (JObject [("k1",JBool True)])
+    , testParse "{\"k1\":true,\"k2\":null}"
+                (JObject [("k1",JBool True),("k2",JNull)])
+    , testParse "{\"k1\": true, \"k2\": null}"
+                (JObject [("k1",JBool True),("k2",JNull)])
+    , testParse "{ \"k1\" : true , \"k2\" : null }"
+                (JObject [("k1",JBool True),("k2",JNull)])
+    , testParse "{\"k1\": true, \"k2\": null, \"k3\": [\"a\", false, null]}"
+                (JObject [("k1",JBool True),("k2",JNull),
+                          ("k3",(JArray [JString "a",JBool False,JNull]))])
+    ]
+    
+arrays = test
+    [ testParse "[]" (JArray [])
+    , testParse "[true]" (JArray [JBool True])
+    , testParse "[\"a\",false,null]" (JArray [JString "a",JBool False,JNull])
+    , testParse "[\"a\", false, null]" (JArray [JString "a",JBool False,JNull])
+    , testParse "[ \"a\" , false , null ]"
+                (JArray [JString "a",JBool False,JNull])
+    , testParse "[\"a\", false, null, { \"k1\": true, \"k2\": null } ]"
+                (JArray [JString "a",JBool False,JNull,
+                         (JObject [("k1",JBool True),("k2",JNull)])])
+    ]
+
 errors = test
     [ testParseError "failure"
     , testParseError "nil"
@@ -54,6 +96,7 @@ errors = test
     , testParseError ".2"
     , testParseError "2."
     , testParseError "- 1.2"
+    , testParseError "\"\\uD950\\u0021\""
     ]
 
 testParse :: String -> JSONValue -> Test
