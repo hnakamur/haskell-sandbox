@@ -1,0 +1,137 @@
+
+{-# LANGUAGE FlexibleContexts #-}
+
+module SandBox.Text.HTML.Parser (
+    parseTag
+, attrValue
+, attributes
+, testOr3
+  ) where
+
+import Control.Monad.Identity (Identity)
+import Data.Char (
+      GeneralCategory (NotAssigned), generalCategory, chr, isControl
+    )
+import Numeric (readHex)
+import Text.Parsec (
+      (<|>), (<?>), Stream, ParsecT, ParseError, alphaNum, char, digit,
+      hexDigit, many, many1, oneOf,
+      option, optional, parse, satisfy, sepBy1, skipMany, skipMany1,
+      string, try, unexpected
+    )
+
+import SandBox.Text.HTML.Char (
+      isAllowedRefChar, isAttrNameChar, isSpaceChar, isTextChar
+    )
+import SandBox.Text.HTML.Types (Tag(..), Attribute(..))
+import SandBox.Text.HTML.NamedCharRef (charRefNameToMaybeString)
+
+parseTag :: Stream String Identity Char =>
+    String -> Either ParseError Tag
+parseTag = parse (spaces >> endTag) ""
+
+{-startTag :: Stream s m Char => ParsecT s u m Tag
+startTag = do
+    char '<'
+    name <- tagName
+    attrs <- option [] attributes
+    char '>'
+    return (StartTag tagName attrs)-}
+
+endTag :: Stream s m Char => ParsecT s u m Tag
+endTag = do
+    string "</"
+    name <- tagName
+    spaces
+    char '>'
+    return (EndTag name)
+
+tagName :: Stream s m Char => ParsecT s u m String
+tagName = many1 alphaNum <?> "tag name"
+
+attributes :: Stream s m Char => ParsecT s u m [Attribute]
+attributes = do
+    spaces1
+    attrs <- sepBy1 attribute spaces1
+    return attrs
+
+attribute :: Stream s m Char => ParsecT s u m Attribute
+attribute = do
+    name <- attributeName
+    let value = Nothing
+    return (Attribute name value)
+
+attributeName :: Stream s m Char => ParsecT s u m String
+attributeName = many1 attrNameChar
+
+attrNameChar :: Stream s m Char => ParsecT s u m Char
+attrNameChar = satisfy isAttrNameChar
+
+attrValue :: Stream s m Char => ParsecT s u m String
+attrValue = do
+    strings <- many1 (charRefOrText <|> textNoAmp)
+    return $ concat strings
+
+textNoAmp :: Stream s m Char => ParsecT s u m String
+textNoAmp = many1 textNoAmpChar
+
+textNoAmpChar :: Stream s m Char => ParsecT s u m Char
+textNoAmpChar = satisfy $ \c -> isTextChar c && (c /= '&')
+
+charRefOrText :: Stream s m Char => ParsecT s u m String
+charRefOrText = do
+    char '&'
+    s <- (char '#' >> (decimalCharRefSub <|> hexCharRefSub))
+         <|> namedCharRefSub
+    return s
+
+decimalCharRefSub :: Stream s m Char => ParsecT s u m String
+decimalCharRefSub = do
+    ds <- many1 digit
+    char ';'
+    refCodePointToString $ read ds
+
+hexCharRefSub :: Stream s m Char => ParsecT s u m String
+hexCharRefSub = do
+    oneOf "xX"
+    ds <- many1 hexDigit
+    char ';'
+    refCodePointToString $ hexToI ds
+
+refCodePointToString :: Stream s m Char => Int -> ParsecT s u m String
+refCodePointToString x = do
+    let c = chr x
+    if (isAllowedRefChar c)
+       then return [c]
+       else unexpected "reference to a disallowed character"
+
+testOr3 :: Stream s m Char => ParsecT s u m String
+testOr3 = do { try (string "(a"); char ')'; return "(a)" }
+      <|> string "(b)"
+
+hexToI :: Num a => String -> a
+hexToI ds = let ((n,_):_) = readHex ds
+            in n
+
+namedCharRefSub :: Stream s m Char => ParsecT s u m String
+namedCharRefSub = do
+    name <- try nameColon
+    case (charRefNameToMaybeString name) of
+        (Just value) -> return value
+        Nothing -> unexpected "character reference name"
+  <|> textNoAmp
+
+nameColon :: Stream s m Char => ParsecT s u m String
+nameColon = do
+    name <- many1 alphaNum
+    char ';'
+    return name
+
+spaces1 :: Stream s m Char => ParsecT s u m ()
+spaces1 = skipMany1 space
+
+spaces :: Stream s m Char => ParsecT s u m ()
+spaces = skipMany (space <?> "")
+
+space :: Stream s m Char => ParsecT s u m Char
+space = satisfy isSpaceChar

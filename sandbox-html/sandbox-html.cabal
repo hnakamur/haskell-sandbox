@@ -1,0 +1,13 @@
+Name: sandbox-html
+Version: 0.1.0
+License: BSD3
+License-File: LICENSE
+Synopsis: HTML parser  library
+Description: A simple html parser for JSON.
+Author: hnakamur@gmail.com
+Maintainer: hnakamur@gmail.com
+Cabal-Version: >= 1.2
+Build-Type: Simple
+Library
+  Exposed-Modules: SandBox.Text.HTML
+  Build-Depends: base >= 4.3, pretty >= 1.0
