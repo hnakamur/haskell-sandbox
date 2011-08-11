@@ -10,7 +10,6 @@ module SandBox.Text.HTML.Parser
     , startTag
     , attrsAndClose
     , charRef
-    , attrValue
     , attribute
     , decimalCharRef
     , hexadecimalCharRef
@@ -33,7 +32,9 @@ import SandBox.Text.HTML.Char (
     , isSingleQuotedAttrValueChar
     , isUnquotedAttrValueChar
     )
-import SandBox.Text.HTML.Types (HTML(..), DOCTYPE(..), DTDKind(..), Tag(..), Attribute(..))
+import SandBox.Text.HTML.Types
+  (HTML(..), DOCTYPE(..), DTDKind(..), Attribute(..))
+import qualified SandBox.Text.HTML.Types as T (Tag(..))
 import SandBox.Text.HTML.NamedCharRef (charRefNameToMaybeString)
 
 parseHTML :: Stream String Identity Char =>
@@ -126,24 +127,15 @@ comment = do
     manyTill textChar $ try (string "-->")
 
 parseTag :: Stream String Identity Char =>
-    String -> Either ParseError Tag
+    String -> Either ParseError T.Tag
 parseTag = parse (spaces >> endTag) ""
 
-{-startTag :: Stream s m Char => ParsecT s u m Tag
-startTag = do
-    char '<'
-    name <- tagName
-    attrs <- try $ option [] attributes
-    spaces
-    ((string "/>" >> return (StartTag name attrs True))
-     <|> (char '>' >> return (StartTag name attrs False)))-}
-
-startTag :: Stream s m Char => ParsecT s u m Tag
+startTag :: Stream s m Char => ParsecT s u m T.Tag
 startTag = do
     char '<'
     name <- tagName
     (attrs, selfClosing) <- attrsAndClose
-    return (StartTag name attrs selfClosing)
+    return (T.StartTag name attrs selfClosing)
 
 attrsAndClose :: Stream s m Char => ParsecT s u m ([Attribute], Bool)
 attrsAndClose =
@@ -175,13 +167,13 @@ attribute =
         <|> return (Attribute name Nothing, False)
       }
 
-endTag :: Stream s m Char => ParsecT s u m Tag
+endTag :: Stream s m Char => ParsecT s u m T.Tag
 endTag = do
     string "</"
     name <- tagName
     spaces
     char '>'
-    return (EndTag name)
+    return (T.EndTag name)
 
 tagName :: Stream s m Char => ParsecT s u m String
 tagName = many1 alphaNum <?> "tag name"
@@ -191,11 +183,6 @@ attributeName = many1 attrNameChar
 
 attrNameChar :: Stream s m Char => ParsecT s u m Char
 attrNameChar = satisfy isAttrNameChar
-
-attrValue :: Stream s m Char => ParsecT s u m String
-attrValue = unquotedAttrValue
-        <|> singleQuotedAttrValue
-        <|> doubleQuotedAttrValue
 
 unquotedAttrValue :: Stream s m Char => ParsecT s u m String
 unquotedAttrValue = do

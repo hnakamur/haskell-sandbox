@@ -1,67 +1,59 @@
-module SandBox.Text.HTML.Types (
-    HTML(..)
-  , getDOCTYPE
-  , getRootElement
+module SandBox.Text.HTML.Types
+  ( HTML(..)
   , DOCTYPE(..)
   , DTDKind(..)
-  , getDTDRootElement
-  , getMaybeDTDKind
-  , getMaybePublicId
-  , getMaybeSystemId
   , Tag(..)
   , Attribute(..)
-  , getTagName
-  , getAttributes
-  , isSelfClosing
   , getAttributeName
   , getAttributeMaybeValue
   , getAttributeValue
   ) where
 
-data HTML = HTML DOCTYPE Tag
-            deriving (Eq, Ord, Show)
+data HTML = HTML
+  { docType :: DOCTYPE
+  , rootElement :: Tag
+  } deriving (Eq, Ord)
 
-getDOCTYPE :: HTML -> DOCTYPE
-getDOCTYPE (HTML doctype _) = doctype
+instance Show HTML where
+  show h = "HTML (" ++ show (docType h) ++ ") ("
+           ++ show (rootElement h) ++ ")"
 
-getRootElement :: HTML -> Tag
-getRootElement (HTML _ root) = root
+data DOCTYPE = DOCTYPE
+  { dtdRootElement :: String
+  , dtdKind :: Maybe DTDKind
+  , publicId :: Maybe String
+  , systemId :: Maybe String
+  } deriving (Eq, Ord)
 
-data DOCTYPE = DOCTYPE String (Maybe DTDKind) (Maybe String) (Maybe String)
-             deriving (Eq, Ord, Show)
+instance Show DOCTYPE where
+  show dt = "DOCTYPE " ++ show (dtdRootElement dt) ++ " "
+            ++ showMaybeParen (dtdKind dt) ++ " "
+            ++ showMaybeParen (publicId dt) ++ " "
+            ++ showMaybeParen (systemId dt)
+
+showMaybeParen :: Show a => Maybe a -> String
+showMaybeParen v@(Just _) = "(" ++ show v ++ ")"
+showMaybeParen v@Nothing = show v
+
 
 data DTDKind = PUBLIC
              | SYSTEM
              deriving (Eq, Ord, Show)
 
-getDTDRootElement :: DOCTYPE -> String
-getDTDRootElement (DOCTYPE root _ _ _) = root
+data Tag = StartTag
+           { tagName :: String
+           , attributes :: [Attribute]
+           , selfClosing :: Bool
+           }
+         | EndTag
+           { tagName :: String }
+         deriving (Eq, Ord)
 
-getMaybeDTDKind :: DOCTYPE -> Maybe DTDKind
-getMaybeDTDKind (DOCTYPE _ kind _ _) = kind
-
-getMaybePublicId :: DOCTYPE -> Maybe String
-getMaybePublicId (DOCTYPE _ _ pubId _) = pubId
-
-getMaybeSystemId :: DOCTYPE -> Maybe String
-getMaybeSystemId (DOCTYPE _ _ _ sysId) = sysId
-
-
-
-data Tag = StartTag String [Attribute] Bool
-         | EndTag String
-         deriving (Eq, Ord, Show)
-
-getTagName :: Tag -> String
-getTagName (StartTag n _ _) = n
-getTagName (EndTag n) = n
-
-getAttributes :: Tag -> [Attribute]
-getAttributes (StartTag _ attributes _) = attributes
-
-isSelfClosing :: Tag -> Bool
-isSelfClosing (StartTag _ _ b) = b
-
+instance Show Tag where
+  show (StartTag n attrs c) =
+    "StartTag " ++ show n ++ " " ++ show attrs ++ " " ++ show c
+  show (EndTag n) =
+    "EndTag " ++ show n
 
 data Attribute = Attribute String (Maybe String)
                deriving (Eq, Ord, Show)

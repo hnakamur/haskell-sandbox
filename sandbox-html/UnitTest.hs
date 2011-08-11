@@ -47,8 +47,20 @@ tests = test
           "<img src=\"a.jpg\"/>"
           (StartTag "img" [Attribute "src" (Just "a.jpg")] True)
     , testParse startTag
-          "<img src=\"a.jpg\" />" {- TODO: enable to parse this. -}
+          "<img src=\"a.jpg\" />"
           (StartTag "img" [Attribute "src" (Just "a.jpg")] True)
+    , testParse startTag
+          "<a href=\"/example/\">"
+          (StartTag "a" [Attribute "href" (Just "/example/")] False)
+    , testParse startTag
+          "<a href=/example/>"
+          (StartTag "a" [Attribute "href" (Just "/example/")] False)
+    , testParse startTag
+          "<a href=/example />"
+          (StartTag "a" [Attribute "href" (Just "/example")] True)
+    , testParse startTag
+          "<a href=\"/example\"/>"
+          (StartTag "a" [Attribute "href" (Just "/example")] True)
     , testParse comment "<!-- -->" " " 
     , testParse comment "<!---->" "" 
     ]
