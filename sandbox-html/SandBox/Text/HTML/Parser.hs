@@ -7,6 +7,8 @@ module SandBox.Text.HTML.Parser
     , doctype
     , cdata
     , comment
+    , commentsAndSpaces
+    , isInvalidCommentText
     , startTag
     , attrsAndClose
     , charRef
@@ -18,6 +20,7 @@ module SandBox.Text.HTML.Parser
 
 import Control.Monad.Identity (Identity)
 import Data.Char (chr, toLower)
+import Data.List (isPrefixOf, isSuffixOf, isInfixOf)
 import Numeric (readHex)
 import Text.Parsec (
       (<|>), (<?>), Stream, ParsecT, ParseError, alphaNum, anyChar, between,
@@ -33,7 +36,7 @@ import SandBox.Text.HTML.Char (
     , isUnquotedAttrValueChar
     )
 import SandBox.Text.HTML.Types
-  (HTML(..), DOCTYPE(..), DTDKind(..), Attribute(..))
+  (HTML(..), Comment(..), DOCTYPE(..), DTDKind(..), Attribute(..))
 import qualified SandBox.Text.HTML.Types as T (Tag(..))
 import SandBox.Text.HTML.NamedCharRef (charRefNameToMaybeString)
 
@@ -41,14 +44,14 @@ parseHTML :: Stream String Identity Char =>
     String -> Either ParseError HTML
 parseHTML = parse html ""
 
+-- TODO: optional byte order mark
 html :: Stream s m Char => ParsecT s u m HTML
 html = do
-    -- TODO: optional byte order mark
-    commentOrSpaces
+    commentsAndSpaces
     d <- doctype
-    commentOrSpaces
+    commentsAndSpaces
     root <- startTag
-    commentOrSpaces
+    commentsAndSpaces
     return $ HTML d root
 
 
@@ -111,20 +114,30 @@ caseInsensitiveString = sequence . map caseInsensitiveChar
 caseInsensitiveChar :: Stream s m Char => Char -> ParsecT s u m Char
 caseInsensitiveChar c = satisfy $ \c' -> toLower c == toLower c'
 
-commentOrSpaces :: Stream s m Char => ParsecT s u m ()
-commentOrSpaces = do
-    many $ (try comment >> return ()) <|> try spaces1
-    return ()
+commentsAndSpaces :: Stream s m Char => ParsecT s u m [Comment]
+commentsAndSpaces =
+    do{ spaces
+      ; c <- try comment
+      ; spaces
+      ; do{ cs <- try commentsAndSpaces
+          ; return (c:cs)
+          }
+        <|> return [c]
+      }
+     <|> return []
 
-comment :: Stream s m Char => ParsecT s u m String
+comment :: Stream s m Char => ParsecT s u m Comment
 comment = do
     string "<!--"
-    {- TODO: must reject three cases below:
-     - 1. The first letter of the text is '-'.
-     - 2. The text contains "--" in the middle.
-     - 3. The last letter of the text is '-'.
-     -}
-    manyTill textChar $ try (string "-->")
+    cs <- manyTill textChar $ try (string "-->")
+    if isInvalidCommentText cs
+      then fail "invalid comment text"
+      else return (Comment cs)
+
+isInvalidCommentText s =    ">" `isPrefixOf` s
+                         || "-" `isPrefixOf` s
+                         || "-" `isSuffixOf` s
+                         || "--" `isInfixOf` s
 
 parseTag :: Stream String Identity Char =>
     String -> Either ParseError T.Tag

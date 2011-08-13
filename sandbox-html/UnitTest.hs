@@ -17,6 +17,10 @@ tests = test
           "<!DOCTYPE html><html>"
           (HTML (DOCTYPE "html" Nothing Nothing Nothing)
                 (StartTag "html" [] False))
+    , testParse html
+          "  <!-- comment1 --> <!-- comment2 --> <!DOCTYPE html><!-- This is coment --> <html>"
+          (HTML (DOCTYPE "html" Nothing Nothing Nothing)
+                (StartTag "html" [] False))
     , testParse startTag
           "<html>"
           (StartTag "html" [] False)
@@ -61,8 +65,15 @@ tests = test
     , testParse startTag
           "<a href=\"/example\"/>"
           (StartTag "a" [Attribute "href" (Just "/example")] True)
-    , testParse comment "<!-- -->" " " 
-    , testParse comment "<!---->" "" 
+    , testParse comment "<!-- -->" (Comment " ")
+    , testParse comment "<!---->" (Comment "")
+    , testParse comment
+          "<!-- This is comment. -->"
+          (Comment " This is comment. ")
+    , testParseError comment "<!--- -->"
+    , testParseError comment "<!--> -->"
+    , testParseError comment "<!-- --->"
+    , testParseError comment "<!-- -- -->"
     ]
 
 testParse :: (Show a, Eq a) =>

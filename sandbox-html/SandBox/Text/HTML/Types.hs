@@ -1,5 +1,6 @@
 module SandBox.Text.HTML.Types
   ( HTML(..)
+  , Comment(..)
   , DOCTYPE(..)
   , DTDKind(..)
   , Tag(..)
@@ -17,6 +18,9 @@ data HTML = HTML
 instance Show HTML where
   show h = "HTML (" ++ show (docType h) ++ ") ("
            ++ show (rootElement h) ++ ")"
+
+data Comment = Comment String
+             deriving (Eq, Ord, Show)
 
 data DOCTYPE = DOCTYPE
   { dtdRootElement :: String
