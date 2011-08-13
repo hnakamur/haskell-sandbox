@@ -1,0 +1,6 @@
+This is my experimental library for CSS parser written in Haskell.
+
+To run tests, execute commands below:
+ runhaskell Setup.hs configure
+ runhaskell Setup.hs test
+Warning about deprecated runTests is displayed, but it works.

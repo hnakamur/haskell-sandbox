@@ -1,13 +1,13 @@
-Name: sandbox-html
+Name: sandbox-css
 Version: 0.1.0
 License: BSD3
 License-File: LICENSE
-Synopsis: HTML parser  library
-Description: A simple html parser.
+Synopsis: CSS parser library
+Description: A simple CSS parser.
 Author: hnakamur@gmail.com
 Maintainer: hnakamur@gmail.com
 Cabal-Version: >= 1.2
 Build-Type: Simple
 Library
-  Exposed-Modules: SandBox.Text.HTML
+  Exposed-Modules: SandBox.Text.CSS
   Build-Depends: base >= 4.3
