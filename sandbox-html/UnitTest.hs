@@ -21,6 +21,13 @@ tests = test
           "  <!-- comment1 --> <!-- comment2 --> <!DOCTYPE html><!-- This is coment --> <html>"
           (HTML (DOCTYPE "html" Nothing Nothing Nothing)
                 (StartTag "html" [] False))
+    , testParse htmlTokens
+          "<!DOCTYPE html><html>Hello, HTML.</html>"
+          [ DOCTYPEToken (DOCTYPE "html" Nothing Nothing Nothing)
+          , TagToken (StartTag "html" [] False)
+          , TextToken "Hello, HTML."
+          , TagToken (EndTag "html")
+          ]
     , testParse startTag
           "<html>"
           (StartTag "html" [] False)

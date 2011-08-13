@@ -2,8 +2,9 @@
 
 module SandBox.Text.HTML.Parser
     ( parseHTML
-    , parseTag
     , html
+    , htmlToken
+    , htmlTokens
     , doctype
     , cdata
     , comment
@@ -25,8 +26,8 @@ import Numeric (readHex)
 import Text.Parsec (
       (<|>), (<?>), Stream, ParsecT, ParseError, alphaNum, anyChar, between,
       char, digit, eof, hexDigit, letter, lookAhead, many, many1, manyTill,
-      oneOf, option, optionMaybe, optional, parse, satisfy, sepBy1, skipMany,
-      skipMany1, string, try, unexpected
+      noneOf, oneOf, option, optionMaybe, optional, parse, satisfy, sepBy1,
+      skipMany, skipMany1, string, try, unexpected
     )
 
 import SandBox.Text.HTML.Char (
@@ -37,7 +38,7 @@ import SandBox.Text.HTML.Char (
     )
 import SandBox.Text.HTML.Types
   (HTML(..), Comment(..), DOCTYPE(..), DTDKind(..), Attribute(..))
-import qualified SandBox.Text.HTML.Types as T (Tag(..))
+import qualified SandBox.Text.HTML.Types as T (HTMLToken(..), Tag(..))
 import SandBox.Text.HTML.NamedCharRef (charRefNameToMaybeString)
 
 parseHTML :: Stream String Identity Char =>
@@ -54,6 +55,27 @@ html = do
     commentsAndSpaces
     return $ HTML d root
 
+htmlTokens :: Stream s m Char => ParsecT s u m [T.HTMLToken]
+htmlTokens =
+    do{ t <- try htmlToken
+      ; spaces
+      ; do{ ts <- try htmlTokens
+          ; return (t:ts)
+          }
+        <|> return [t]
+      }
+     <|> return []
+
+htmlToken :: Stream s m Char => ParsecT s u m T.HTMLToken
+htmlToken =
+        (try doctype >>= \t -> return (T.DOCTYPEToken t))
+    <|> (try startTag >>= \t -> return (T.TagToken t))
+    <|> (try endTag >>= \t -> return (T.TagToken t))
+    <|> (fakeText >>= \t -> return (T.TextToken t))
+
+-- Temporary implementation
+fakeText :: Stream s m Char => ParsecT s u m String
+fakeText = many1 (noneOf "<")
 
 doctype :: Stream s m Char => ParsecT s u m DOCTYPE
 doctype =
@@ -138,10 +160,6 @@ isInvalidCommentText s =    ">" `isPrefixOf` s
                          || "-" `isPrefixOf` s
                          || "-" `isSuffixOf` s
                          || "--" `isInfixOf` s
-
-parseTag :: Stream String Identity Char =>
-    String -> Either ParseError T.Tag
-parseTag = parse (spaces >> endTag) ""
 
 startTag :: Stream s m Char => ParsecT s u m T.Tag
 startTag = do
