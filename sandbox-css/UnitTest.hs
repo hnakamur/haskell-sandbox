@@ -6,8 +6,7 @@ import Test.HUnit ((~:), Test, assertBool, assertEqual, assertFailure,
                    runTestTT, test)
 import Text.Parsec (Stream, ParsecT, parse, char)
 
-import SandBox.Text.CSS hiding (ident, num)
-import SandBox.Text.CSS.Parser (ident, num)
+import SandBox.Text.CSS
 import SandBox.Text.CSS.Parsec.Combinator
 
 main = do
@@ -16,8 +15,7 @@ main = do
 
 tests :: Test
 tests = test
-    [ testParse cssTokens "" []
-    , testParse (countMax 4 (char 'c')) "" ""
+    [ testParse (countMax 4 (char 'c')) "" ""
     , testParse (countMax 4 (char 'c')) "c" "c"
     , testParse (countMax 4 (char 'c')) "cc" "cc"
     , testParse (countMax 4 (char 'c')) "ccc" "ccc"
@@ -37,9 +35,17 @@ tests = test
     , testParse unicode "\\10beaf " '\x10beaf'
     , testParse ident "font-family" "font-family"
     , testParse ident "-webkit-animation" "-webkit-animation"
-    , testParse num "123" "123"
+    , testParse uri "url('http://www.example.com/redball.png')"
+                    (URI "http://www.example.com/redball.png")
+    , testParse uri "url(http://www.example.com/redball.png)"
+                    (URI "http://www.example.com/redball.png")
+    , testParse declaration
+                "color: blue"
+                (Declaration (Property "color")
+                             (Value [VEAny (Ident "blue")]))
+    {-, testParse num "123" "123"
     , testParse num "12.34" "12.34"
-    , testParse num ".34" ".34"
+    , testParse num ".34" ".34"-}
     ]
 
 testParse :: (Show a, Eq a) =>

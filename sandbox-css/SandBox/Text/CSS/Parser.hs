@@ -1,7 +1,14 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module SandBox.Text.CSS.Parser
-    ( cssTokens
+    ( 
+declaration
+, property
+, value
+, block
+, atKeyword
+, any
+, uri
 , ident
 , name
 , num
@@ -11,6 +18,7 @@ module SandBox.Text.CSS.Parser
 , crlf
 , nl
 , optional
+, simpleEscape
 , isSimpleEscapeChar
     ) where
 
@@ -21,22 +29,119 @@ import Text.Parsec hiding (string, space, spaces)
 import qualified Text.Parsec as P (string)
 import SandBox.Text.CSS.Char
 import SandBox.Text.CSS.Parsec.Combinator
-import qualified SandBox.Text.CSS.Types as T
+import SandBox.Text.CSS.Types
+import Prelude hiding (any)
 
-cssTokens :: Stream s m Char => ParsecT s u m [T.CSSToken]
-cssTokens =
-    do{ t <- try cssToken
-      ; spaces
-      ; do{ ts <- try cssTokens
-          ; return (t:ts)
-          }
-        <|> return [t]
-      }
-     <|> return []
+declaration :: Stream s m Char => ParsecT s u m Declaration
+declaration = do
+    p <- property
+    spaces
+    char ':'
+    spaces
+    v <- value
+    return (Declaration p v)
 
-cssToken :: Stream s m Char => ParsecT s u m T.CSSToken
-cssToken =
-        (try ident >>= \i -> return (T.Ident i))
+property :: Stream s m Char => ParsecT s u m Property
+property = do
+    i <- ident
+    return (Property i)
+
+value :: Stream s m Char => ParsecT s u m Value
+value = do
+    xs <- many1 valueElem
+    return (Value xs)
+
+valueElem :: Stream s m Char => ParsecT s u m ValueElem
+valueElem =
+    choice [ do{ a <- try any; return (VEAny a) }
+           , do{ b <- try block; return (VEBlock b) }
+           , do{ k <- atKeyword; return (VEAtKeyword k) }
+           ]
+
+block :: Stream s m Char => ParsecT s u m Block
+block = do
+    xs <- between (char '{' >> spaces) (char '}' >> spaces)
+                  (many blockElem)
+    return (Block xs)
+
+blockElem :: Stream s m Char => ParsecT s u m BlockElem
+blockElem = do
+    e <- choice [ do{ a <- try any; return (BEAny a) }
+                , do{ b <- try block; return (BEBlock b) }
+                , do{ k <- atKeyword; return (BEAtKeyword k) }
+                ]
+    spaces
+    return e
+
+any :: Stream s m Char => ParsecT s u m Any
+any = do
+    a <- choice [ try identifier
+                , try stringLit
+                , try percentage
+                , try dimension
+                , try number
+                , try uri
+                , try hash
+                ]
+    return a
+
+
+{-property :: Stream s m Char => ParsecT s u m TokenData
+property = identifier-}
+
+identifier :: Stream s m Char => ParsecT s u m Any
+identifier = do
+    i <- ident
+    return (Ident i)
+
+atKeyword :: Stream s m Char => ParsecT s u m AtKeyword
+atKeyword = do
+    char '@'
+    i <- ident
+    return (AtKeyword i)
+
+stringLit :: Stream s m Char => ParsecT s u m Any
+stringLit = do
+    s <- string
+    return (CSSString s)
+
+hash :: Stream s m Char => ParsecT s u m Any
+hash = do
+    char '#'
+    n <- name
+    return (Hash n)
+
+number :: Stream s m Char => ParsecT s u m Any
+number = do
+    n <- num
+    return (Number n)
+
+percentage :: Stream s m Char => ParsecT s u m Any
+percentage = do
+    n <- num
+    char '%'
+    return (Percentage n)
+
+dimension :: Stream s m Char => ParsecT s u m Any
+dimension = do
+    n <- num
+    i <- ident
+    return (Dimension n i)
+
+uri :: Stream s m Char => ParsecT s u m Any
+uri = do
+    between (P.string "url(" >> spaces) (spaces >> P.string ")")
+            (uriContent >>= \c -> return (URI c))
+
+
+uriContent :: Stream s m Char => ParsecT s u m String
+uriContent = try string
+             <|> (many $ choice
+                          [ try (satisfy isUnquotedURIContentChar)
+                          , try nonascii
+                          , escape
+                          ]
+                 )
 
 ident :: Stream s m Char => ParsecT s u m String
 ident = do
@@ -51,6 +156,9 @@ name = many1 nmchar
 nmstart :: Stream s m Char => ParsecT s u m Char
 nmstart = satisfy isNmStartChar <|> escape
 
+nonascii :: Stream s m Char => ParsecT s u m Char
+nonascii = satisfy isNonAsciiChar
+
 nmchar :: Stream s m Char => ParsecT s u m Char
 nmchar = satisfy isNmChar <|> escape
 
@@ -62,10 +170,10 @@ unicode = do
     return $ chr (hexToI ds)
 
 escape :: Stream s m Char => ParsecT s u m Char
-escape = unicode <|> simpleEscape
+escape = try unicode <|> simpleEscape
 
 simpleEscape :: Stream s m Char => ParsecT s u m Char
-simpleEscape = char '\\' >> satisfy (not . isSimpleEscapeChar)
+simpleEscape = char '\\' >> satisfy isSimpleEscapeChar
 
 crlf :: Stream s m Char => ParsecT s u m String
 crlf = P.string "\r\n"
@@ -81,32 +189,25 @@ badstring :: Stream s m Char => ParsecT s u m String
 badstring = badstring1 <|> badstring2
 
 string1 :: Stream s m Char => ParsecT s u m String
-string1 = stringSub doubleQuote string1Part doubleQuote
+string1 = stringSub doubleQuote (stringContent '"') doubleQuote
 
 badstring1 :: Stream s m Char => ParsecT s u m String
-badstring1 = stringSub doubleQuote string1Part (try badStringEnd)
+badstring1 = stringSub doubleQuote (stringContent '"') (try badStringEnd)
 
-string1Part :: Stream s m Char => ParsecT s u m String
-string1Part = choice [ sequence [satisfy isStr1Char]
+stringContent :: Stream s m Char => Char -> ParsecT s u m String
+stringContent quoteChar = choice [ sequence [try escape]
                      , try (char '\\' >> nl)
-                     , sequence [escape]
+                     , sequence [satisfy (isPlainStrChar quoteChar)]
                      ]
-
-isStr1Char :: Char -> Bool
-isStr1Char '\n' = False
-isStr1Char '\r' = False
-isStr1Char '\f' = False
-isStr1Char '"' = False
-isStr1Char _ = True
 
 stringSub :: Stream s m Char => ParsecT s u m String ->
                                 ParsecT s u m String ->
                                 ParsecT s u m String ->
                                 ParsecT s u m String
 stringSub start unit end = do
-  h <- start
-  t <- manyUpTo unit end
-  return $ concat (h:t)
+  start
+  t <- manyTill unit end
+  return (concat t)
 
 doubleQuote :: Stream s m Char => ParsecT s u m String
 doubleQuote = P.string "\""
@@ -118,23 +219,10 @@ badStringEnd :: Stream s m Char => ParsecT s u m String
 badStringEnd = P.string "\\?"
 
 string2 :: Stream s m Char => ParsecT s u m String
-string2 = stringSub singleQuote string2Part singleQuote
+string2 = stringSub singleQuote (stringContent '\'') singleQuote
 
 badstring2 :: Stream s m Char => ParsecT s u m String
-badstring2 = stringSub singleQuote string2Part (try badStringEnd)
-
-string2Part :: Stream s m Char => ParsecT s u m String
-string2Part = choice [ sequence [satisfy isStr2Char]
-                     , try (char '\\' >> nl)
-                     , sequence [escape]
-                     ]
-
-isStr2Char :: Char -> Bool
-isStr2Char '\n' = False
-isStr2Char '\r' = False
-isStr2Char '\f' = False
-isStr2Char '\'' = False
-isStr2Char _ = True
+badstring2 = stringSub singleQuote (stringContent '\'') (try badStringEnd)
 
 nl :: Stream s m Char => ParsecT s u m String
 nl =   P.string "\n"
