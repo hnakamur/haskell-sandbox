@@ -1,5 +1,6 @@
 module SandBox.Text.CSS.Char
-    ( isNmStartChar
+    ( isAsciiAlpha
+    , isNmStartChar
     , isNmChar
     , isNonAsciiChar
     , isPlainStrChar

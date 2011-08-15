@@ -15,7 +15,11 @@ main = do
 
 tests :: Test
 tests = test
-    [ testParse (countMax 4 (char 'c')) "" ""
+    [ testParse
+        stylesheet
+        "{color:red}" 
+        [RuleSet Nothing [Declaration "color" (Value [VEAny (Ident "red")])]]
+    , testParse (countMax 4 (char 'c')) "" ""
     , testParse (countMax 4 (char 'c')) "c" "c"
     , testParse (countMax 4 (char 'c')) "cc" "cc"
     , testParse (countMax 4 (char 'c')) "ccc" "ccc"
@@ -41,7 +45,7 @@ tests = test
                     (URI "http://www.example.com/redball.png")
     , testParse declaration
                 "color: blue"
-                (Declaration (Property "color")
+                (Declaration "color"
                              (Value [VEAny (Ident "blue")]))
     {-, testParse num "123" "123"
     , testParse num "12.34" "12.34"

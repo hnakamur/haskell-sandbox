@@ -3,14 +3,24 @@ module SandBox.Text.CSS.Types
   , StyleSheet(..)
   , Statement(..)
   , Selector(..)
+  , SimpleSel(..)
+  , Element
+  , SubSel(..)
+  , AttrSel(..)
+  , AttrName
+  , AttrVal
   , AtKeyword(..)
   , Any(..)
   , Block(..)
   , BlockElem(..)
   , Declaration(..)
-  , Property(..)
   , Value(..)
   , ValueElem(..)
+  , Color(..)
+  , BasicColorKeyword(..)
+  , toRGBColor
+  , basicNameToColor
+
   {-, tdIdent
   , tdString
   , tdNum
@@ -20,6 +30,74 @@ module SandBox.Text.CSS.Types
   , tdEnd-}
   ) where
 
+import Control.Monad (liftM)
+import Data.Char (toLower)
+import qualified Data.Map as M (Map, fromList, lookup)
+
+data Color = BasicNamedColor BasicColorKeyword
+           | RGBColor Int Int Int
+           deriving (Eq, Ord, Show)
+
+data BasicColorKeyword = Black
+                       | Silver
+                       | Gray
+                       | White
+                       | Maroon
+                       | Red
+                       | Purple
+                       | Fuchsia
+                       | Green
+                       | Lime
+                       | Olive
+                       | Yellow
+                       | Navy
+                       | Blue
+                       | Teal
+                       | Aqua
+                       deriving (Eq, Ord, Show)
+
+basicColorMap :: M.Map String BasicColorKeyword
+basicColorMap = M.fromList
+  [ ("black", Black)
+  , ("silver", Silver)
+  , ("gray", Gray)
+  , ("white", White)
+  , ("maroon", Maroon)
+  , ("red", Red)
+  , ("purple", Purple)
+  , ("fuchsia", Fuchsia)
+  , ("green", Green)
+  , ("lime", Lime)
+  , ("olive", Olive)
+  , ("yellow", Yellow)
+  , ("navy", Navy)
+  , ("blue", Blue)
+  , ("teal", Teal)
+  , ("aqua", Aqua)
+  ]
+
+basicNameToColor :: String -> Maybe Color
+basicNameToColor name = liftM BasicNamedColor $
+                          M.lookup (map toLower name) basicColorMap
+
+toRGBColor :: Color -> Color
+toRGBColor (BasicNamedColor Black)   = RGBColor 0 0 0
+toRGBColor (BasicNamedColor Silver)  = RGBColor 192 192 192
+toRGBColor (BasicNamedColor Gray)    = RGBColor 128 128 128
+toRGBColor (BasicNamedColor White)   = RGBColor 255 255 255
+toRGBColor (BasicNamedColor Maroon)  = RGBColor 128 0 0
+toRGBColor (BasicNamedColor Red)     = RGBColor 255 0 0
+toRGBColor (BasicNamedColor Purple)  = RGBColor 128 0 128
+toRGBColor (BasicNamedColor Fuchsia) = RGBColor 255 0 255
+toRGBColor (BasicNamedColor Green)   = RGBColor 0 128 0
+toRGBColor (BasicNamedColor Lime)    = RGBColor 0 255 0
+toRGBColor (BasicNamedColor Olive)   = RGBColor 128 128 0
+toRGBColor (BasicNamedColor Yellow)  = RGBColor 255 255 0
+toRGBColor (BasicNamedColor Navy)    = RGBColor 0 0 128
+toRGBColor (BasicNamedColor Blue)    = RGBColor 0 0 255
+toRGBColor (BasicNamedColor Teal)    = RGBColor 0 128 128
+toRGBColor (BasicNamedColor Aqua)    = RGBColor 0 255 255
+
 data StyleSheet = StyleSheet [Statement]
                 deriving (Eq, Ord, Show)
 
@@ -27,8 +105,39 @@ data Statement = RuleSet (Maybe Selector) [Declaration]
                | AtRule AtKeyword [Any] (Maybe Block)
                deriving (Eq, Ord, Show)
 
-data Selector = Selector [Any]
+data Selector = SimpleSel SimpleSel
+              | DescendSel Selector Selector
+              | ChildSel Selector Selector
+              | AdjSel Selector Selector
               deriving (Eq, Ord, Show)
+
+data SimpleSel = UnivSel [SubSel]
+               | TypeSel Element [SubSel]
+               deriving (Eq, Ord, Show)
+
+type Element = String
+
+data SubSel = AttrSel AttrSel
+            | ClassSel Class
+            | IdSel Id
+            deriving (Eq, Ord, Show)
+
+type Class = String
+type Id = String
+
+data AttrSel = AttrExists AttrName
+             | AttrEq AttrName AttrVal
+             | AttrContains AttrName AttrVal
+             | AttrBegins AttrName AttrVal
+             deriving (Eq, Ord, Show)
+
+type AttrName = String
+type AttrVal = String
+
+{-data AttrVal = AttrValStr String
+             | AttrValId String
+             deriving (Eq, Ord, Show)-}
+
 
 data AtKeyword = AtKeyword String
                deriving (Eq, Ord, Show)
@@ -51,11 +160,8 @@ data BlockElem = BEAny Any
                | BEAtKeyword AtKeyword
                deriving (Eq, Ord, Show)
 
-data Declaration = Declaration Property Value
+data Declaration = Declaration String Value
                  deriving (Eq, Ord, Show)
-
-data Property = Property String
-              deriving (Eq, Ord, Show)
 
 data Value = Value [ValueElem]
            deriving (Eq, Ord, Show)

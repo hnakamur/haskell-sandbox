@@ -2,8 +2,9 @@
 
 module SandBox.Text.CSS.Parser
     ( 
-declaration
-, property
+stylesheet
+, selector
+, declaration
 , value
 , block
 , atKeyword
@@ -20,31 +21,231 @@ declaration
 , optional
 , simpleEscape
 , isSimpleEscapeChar
+, color
+, lexeme
+, symbol
+, braces
+, declarationBlock
+, semi
+, attrSel
+, simpleSel
     ) where
 
 import Control.Monad (liftM)
 import Data.Char (chr)
+import Data.Functor.Identity (Identity)
 import Numeric (readHex)
 import Text.Parsec hiding (string, space, spaces)
-import qualified Text.Parsec as P (string)
+import Text.Parsec.Language (emptyDef)
+import qualified Text.Parsec as S (string)
+import qualified Text.Parsec.Token as P
 import SandBox.Text.CSS.Char
 import SandBox.Text.CSS.Parsec.Combinator
 import SandBox.Text.CSS.Types
 import Prelude hiding (any)
 
+stylesheet :: Stream s m Char => ParsecT s u m [Statement]
+stylesheet = do
+    spaces
+    many statement
+
+statement :: Stream s m Char => ParsecT s u m Statement
+statement = atRule <|> ruleSet
+
+atRule :: Stream s m Char => ParsecT s u m Statement
+atRule = do
+    k <- atKeyword
+    spaces
+    return (AtRule k [] Nothing)
+
+ruleSet :: Stream s m Char => ParsecT s u m Statement
+ruleSet = do
+    s <- optionMaybe selector
+    b <- declarationBlock
+    return (RuleSet s b)
+
+selector :: Stream s m Char => ParsecT s u m Selector
+selector =
+    simpleSel >>= \s1 -> (
+      (try (spaces1 >> selector) >>= \s2 ->
+       return (DescendSel s1 s2)
+      )
+      <|>
+      (try (spaces >> char '>') >> spaces >> selector >>= \s2 ->
+       return (ChildSel s1 s2)
+      )
+      <|>
+      (try (spaces >> char '+') >> spaces >> selector >>= \s2 ->
+       return (AdjSel s1 s2)
+      )
+      <|>
+      return s1
+    )
+
+simpleSel :: Stream s m Char => ParsecT s u m Selector
+simpleSel =
+    (typeSel >>= \t ->
+     many (try (spaces >> subSel)) >>= \s ->
+     return (SimpleSel (TypeSel t s))
+    )
+    <|>
+    (univSel >>
+     many (try (spaces >> subSel)) >>= \s ->
+     return (SimpleSel (UnivSel s))
+    )
+    <|>
+    (many1 (try (spaces >> subSel)) >>= \s ->
+     return (SimpleSel (UnivSel s))
+    )
+
+{- NOTE: typeSel is not lexeme parser. -}
+typeSel :: Stream s m Char => ParsecT s u m String
+typeSel = name
+
+{- NOTE: univSel is not lexeme parser. -}
+univSel :: Stream s m Char => ParsecT s u m String
+univSel = S.string "*"
+
+subSel :: Stream s m Char => ParsecT s u m SubSel
+subSel = 
+    (attrSel >>= \s -> return (AttrSel s))
+    <|>
+    classSel
+    <|>
+    idSel
+
+
+attrSel :: Stream s m Char => ParsecT s u m AttrSel
+attrSel = between (char '[' >> spaces) (char ']') (
+            name >>= \n ->
+            spaces >> (
+              (try (symbol "=") >> attrVal >>= \v -> return (AttrEq n v))
+              <|>
+              (try (symbol "~=") >> attrVal >>= \v -> return (AttrContains n v))
+              <|>
+              (try (symbol "|=") >> attrVal >>= \v -> return (AttrBegins n v))
+              <|>
+              return (AttrExists n)
+            )
+          )
+
+attrVal :: Stream s m Char => ParsecT s u m String
+attrVal =   identifier
+        <|> stringLit
+
+{- Note: No space is allow after '.'. -}
+classSel :: Stream s m Char => ParsecT s u m SubSel
+classSel = do
+    char '.'
+    n <- name
+    return (ClassSel n)
+
+{- Note: No space is allow after '#'. -}
+idSel :: Stream s m Char => ParsecT s u m SubSel
+idSel = do
+    char '#'
+    i <- ident
+    return (IdSel i)
+
+declarationBlock :: Stream s m Char => ParsecT s u m [Declaration]
+declarationBlock = braces (sepBy (declaration <?> "declaration") semi)
+
+braces :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+braces = between (symbol "{") (symbol "}")
+
+lexeme :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+lexeme p = do { x <- p; spaces; return x }
+
+symbol :: Stream s m Char => String -> ParsecT s u m String
+symbol name = lexeme (S.string name)
+
+{-hash :: Stream s m Char => ParsecT s u m String
+hash = symbol "#"-}
+
+dot :: Stream s m Char => ParsecT s u m String
+dot = symbol "."
+
+semi :: Stream s m Char => ParsecT s u m String
+semi = symbol ";"
+
+comma :: Stream s m Char => ParsecT s u m String
+comma = symbol ","
+
+colon :: Stream s m Char => ParsecT s u m String
+colon = symbol ":"
+
+{-css21Style :: P.LanguageDef st
+css21Style = emptyDef
+               { P.commentStart = "/*"
+               , P.commentEnd = "*/"
+               , P.nestedComments = False
+               , P.caseSensitive = False
+               }
+
+css21Style :: Stream s m Char => P.GenLanguageDef s u m
+css21Style = P.LanguageDef
+               { P.commentStart = "/*"
+               , P.commentEnd = "*/"
+               , P.commentLine = ""
+               , P.nestedComments = False
+               , P.identStart = asciiAlpha
+               , P.identLetter = alphaNum
+               , P.opStart = P.opLetter css21Style
+               , P.opLetter = oneOf "+>"
+               , P.reservedOpNames = []
+               , P.reservedNames = []
+               , P.caseSensitive = False
+               }
+
+lexer :: P.TokenParser ()
+lexer :: Stream s m Char => ParsecT s u m String
+lexer = P.makeTokenParser css21Style
+lexer = P.TokenParser
+
+braces :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+braces :: ParsecT String () Identity a -> ParsecT String () Identity a
+braces = P.braces lexer-}
+         
+color :: Stream s m Char => ParsecT s u m Color
+color = hashColor <|> basicNamedColor
+
+hashColor :: Stream s m Char => ParsecT s u m Color
+hashColor = do
+    char '#'
+    try sixHexDigitColor <|> threeHexDigitColor
+
+sixHexDigitColor :: Stream s m Char => ParsecT s u m Color
+sixHexDigitColor = do
+    r <- count 2 hexDigit
+    g <- count 2 hexDigit
+    b <- count 2 hexDigit
+    return $ RGBColor (hexToI r) (hexToI g) (hexToI b)
+
+threeHexDigitColor :: Stream s m Char => ParsecT s u m Color
+threeHexDigitColor = do
+    r <- hexDigit
+    g <- hexDigit
+    b <- hexDigit
+    return $ RGBColor (hexToI (replicate 2 r))
+                      (hexToI (replicate 2 g))
+                      (hexToI (replicate 2 b))
+
+basicNamedColor :: Stream s m Char => ParsecT s u m Color
+basicNamedColor = do
+    n <- name
+    case (basicNameToColor n) of
+      Just c -> return c
+      Nothing -> fail "invalid color name"
+
+asciiAlpha :: Stream s m Char => ParsecT s u m Char
+asciiAlpha = satisfy isAsciiAlpha
+
 declaration :: Stream s m Char => ParsecT s u m Declaration
 declaration = do
-    p <- property
-    spaces
-    char ':'
-    spaces
+    n <- identifier
+    colon
     v <- value
-    return (Declaration p v)
-
-property :: Stream s m Char => ParsecT s u m Property
-property = do
-    i <- ident
-    return (Property i)
+    return (Declaration n v)
 
 value :: Stream s m Char => ParsecT s u m Value
 value = do
@@ -75,35 +276,29 @@ blockElem = do
 
 any :: Stream s m Char => ParsecT s u m Any
 any = do
-    a <- choice [ try identifier
-                , try stringLit
+    a <- choice [ try identifier >>= \i -> return (Ident i)
+                , try stringLit >>= \s -> return (CSSString s)
                 , try percentage
                 , try dimension
                 , try number
                 , try uri
                 , try hash
                 ]
+    spaces
     return a
 
 
-{-property :: Stream s m Char => ParsecT s u m TokenData
-property = identifier-}
+identifier :: Stream s m Char => ParsecT s u m String
+identifier = lexeme ident
 
-identifier :: Stream s m Char => ParsecT s u m Any
-identifier = do
-    i <- ident
-    return (Ident i)
+stringLit :: Stream s m Char => ParsecT s u m String
+stringLit = lexeme string
 
 atKeyword :: Stream s m Char => ParsecT s u m AtKeyword
 atKeyword = do
     char '@'
     i <- ident
     return (AtKeyword i)
-
-stringLit :: Stream s m Char => ParsecT s u m Any
-stringLit = do
-    s <- string
-    return (CSSString s)
 
 hash :: Stream s m Char => ParsecT s u m Any
 hash = do
@@ -130,7 +325,7 @@ dimension = do
 
 uri :: Stream s m Char => ParsecT s u m Any
 uri = do
-    between (P.string "url(" >> spaces) (spaces >> P.string ")")
+    between (S.string "url(" >> spaces) (spaces >> S.string ")")
             (uriContent >>= \c -> return (URI c))
 
 
@@ -145,7 +340,7 @@ uriContent = try string
 
 ident :: Stream s m Char => ParsecT s u m String
 ident = do
-    h <- option "" (P.string "-")
+    h <- option "" (S.string "-")
     s <- nmstart
     cs <- many nmchar
     return (h ++ (s:cs))
@@ -176,7 +371,7 @@ simpleEscape :: Stream s m Char => ParsecT s u m Char
 simpleEscape = char '\\' >> satisfy isSimpleEscapeChar
 
 crlf :: Stream s m Char => ParsecT s u m String
-crlf = P.string "\r\n"
+crlf = S.string "\r\n"
 
 hexToI :: Num a => String -> a
 hexToI ds = let ((n,_):_) = readHex ds
@@ -210,13 +405,13 @@ stringSub start unit end = do
   return (concat t)
 
 doubleQuote :: Stream s m Char => ParsecT s u m String
-doubleQuote = P.string "\""
+doubleQuote = S.string "\""
 
 singleQuote :: Stream s m Char => ParsecT s u m String
-singleQuote = P.string "'"
+singleQuote = S.string "'"
 
 badStringEnd :: Stream s m Char => ParsecT s u m String
-badStringEnd = P.string "\\?"
+badStringEnd = S.string "\\?"
 
 string2 :: Stream s m Char => ParsecT s u m String
 string2 = stringSub singleQuote (stringContent '\'') singleQuote
@@ -225,12 +420,12 @@ badstring2 :: Stream s m Char => ParsecT s u m String
 badstring2 = stringSub singleQuote (stringContent '\'') (try badStringEnd)
 
 nl :: Stream s m Char => ParsecT s u m String
-nl =   P.string "\n"
+nl =   S.string "\n"
    <|> (char '\r' >>= \cr ->
          (try (char '\n') >>= \lf -> return [cr, lf])
          <|> return [cr]
        )
-   <|> P.string "\f"
+   <|> S.string "\f"
 
 num :: Stream s m Char => ParsecT s u m String
 num = try (
