@@ -1,5 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
-
+{-# LANGUAGE FlexibleContexts #-} 
 module SandBox.Text.CSS.Parser
     ( 
 stylesheet
@@ -29,6 +28,7 @@ stylesheet
 , semi
 , attrSel
 , simpleSel
+, strCase
     ) where
 
 import Control.Monad (liftM)
@@ -173,6 +173,10 @@ comma = symbol ","
 
 colon :: Stream s m Char => ParsecT s u m String
 colon = symbol ":"
+
+strCase :: Stream s m Char => String -> ParsecT s u m String
+strCase [] = return []
+strCase s@(c:cs) = satisfy (charCaseEq c) >> strCase cs >> return s
 
 {-css21Style :: P.LanguageDef st
 css21Style = emptyDef

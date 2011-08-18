@@ -7,9 +7,10 @@ module SandBox.Text.CSS.Char
     , isSimpleEscapeChar
     , isSpaceChar
     , isUnquotedURIContentChar
+    , charCaseEq
     ) where
 
-import Data.Char (isAsciiLower, isAsciiUpper, isDigit, isHexDigit)
+import Data.Char (isAsciiLower, isAsciiUpper, isDigit, isHexDigit, toLower)
 
 isNmStartChar :: Char -> Bool
 isNmStartChar c = isAsciiAlpha c || c == '_' || isNonAsciiChar c
@@ -52,3 +53,6 @@ isUnquotedURIContentChar '%' = True
 isUnquotedURIContentChar '^' = True
 isUnquotedURIContentChar c =  (c >= '*' && c <= '[')
                            || (c >= ']' && c <= '~')
+
+charCaseEq :: Char -> Char -> Bool
+charCaseEq c1 c2 = toLower c1 == toLower c2
