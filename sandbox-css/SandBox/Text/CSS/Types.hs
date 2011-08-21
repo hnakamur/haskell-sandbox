@@ -2,6 +2,7 @@ module SandBox.Text.CSS.Types
   ( EncodingName
   , AtCharset(..)
   , AtImport(..)
+  , AtMedia(..)
   , TokenData(..)
   , StyleSheet(..)
   , Statement(..)
@@ -260,6 +261,9 @@ data MarginWidth = MWLength Length
                  | MWPercentage Percentage
                  | MWAuto
                  deriving (Eq, Ord, Show)
+
+data AtMedia = AtMedia [MediaType] [Statement]
+             deriving (Eq, Ord, Show)
 
 data AtKeyword = AtKeyword String
                deriving (Eq, Ord, Show)

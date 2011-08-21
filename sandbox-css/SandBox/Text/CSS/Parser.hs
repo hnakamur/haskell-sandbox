@@ -37,6 +37,7 @@ stylesheet
 , atCharset
 , atImport
 , atPage
+, atMedia
 , marginDecl
     ) where
 
@@ -162,6 +163,15 @@ marginWidth = choice
     , try (keywordCase "auto") >> return MWAuto
     ]
 
+atMedia :: Stream s m Char => ParsecT s u m AtMedia
+atMedia = do
+    keywordCase "@media"
+    spaces
+    ts <- mediaTypeList
+    spaces
+    rs <- braces (many ruleSet)
+    return (AtMedia ts rs)
+
 ruleSet :: Stream s m Char => ParsecT s u m Statement
 ruleSet = do
     s <- optionMaybe selector
@@ -252,7 +262,8 @@ idSel = do
     return (IdSel i)
 
 declarationBlock :: Stream s m Char => ParsecT s u m [Declaration]
-declarationBlock = braces (sepEndBy (declaration <?> "declaration") semi)
+declarationBlock =
+    spaces >> braces (sepEndBy (declaration <?> "declaration") semi)
 
 braces :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 braces = between (symbol "{") (symbol "}")
