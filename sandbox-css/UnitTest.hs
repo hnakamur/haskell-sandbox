@@ -17,8 +17,9 @@ tests :: Test
 tests = test
     [ testParse
         stylesheet
-        "{color:red}" 
-        [RuleSet Nothing [Declaration "color" (Value [VEAny (Ident "red")])]]
+        "h1 {color:red}" 
+        [RuleSet [(SimpleSel (TypeSel "h1" []))]
+                 [Declaration "color" (Value [VEAny (Ident "red")])]]
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "abc" "abc"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "acb" "acb"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "cab" "cab"

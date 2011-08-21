@@ -39,6 +39,7 @@ module SandBox.Text.CSS.Types
   , MarginDecl(..)
   , MarginVal(..)
   , MarginWidth(..)
+  , Important
   {-, tdIdent
   , tdString
   , tdNum
@@ -150,10 +151,12 @@ data PVWhiteSpace = PVWhiteSpaceNormal
 
 type URI = String
 
+type Important = Bool
+
 data StyleSheet = StyleSheet [Statement]
                 deriving (Eq, Ord, Show)
 
-data Statement = RuleSet (Maybe Selector) [Declaration]
+data Statement = RuleSet [Selector] [Declaration]
                | AtRule AtKeyword [Any] (Maybe Block)
                deriving (Eq, Ord, Show)
 

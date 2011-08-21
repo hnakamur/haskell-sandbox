@@ -2,6 +2,7 @@
 module SandBox.Text.CSS.Parser
     ( 
 stylesheet
+, selectorList
 , selector
 , atRule
 , declaration
@@ -39,6 +40,7 @@ stylesheet
 , atPage
 , atMedia
 , marginDecl
+, important
     ) where
 
 import Control.Monad (liftM)
@@ -174,9 +176,12 @@ atMedia = do
 
 ruleSet :: Stream s m Char => ParsecT s u m Statement
 ruleSet = do
-    s <- optionMaybe selector
+    ss <- selectorList
     b <- declarationBlock
-    return (RuleSet s b)
+    return (RuleSet ss b)
+
+selectorList :: Stream s m Char => ParsecT s u m [Selector]
+selectorList = sepBy selector comma
 
 selector :: Stream s m Char => ParsecT s u m Selector
 selector =
@@ -488,6 +493,9 @@ percentage = do
     n <- num
     char '%'
     return (Percentage (read n :: Double))
+
+important :: Stream s m Char => ParsecT s u m Important
+important = option False (symbol "!" >> keyword "important" >> return True)
 
 keyword :: Stream s m Char => String -> ParsecT s u m String
 keyword name = do
