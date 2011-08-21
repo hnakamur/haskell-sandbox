@@ -31,6 +31,7 @@ stylesheet
 , semi
 , attrSel
 , simpleSel
+, pseudoClassSel
 , strCase
 , keywordCase
 , lengthVal
@@ -41,6 +42,8 @@ stylesheet
 , atMedia
 , marginDecl
 , important
+, hasPseudoElement
+, composeSel
     ) where
 
 import Control.Monad (liftM)
@@ -55,6 +58,7 @@ import SandBox.Text.CSS.Char
 import SandBox.Text.CSS.Parsec.Combinator
 import SandBox.Text.CSS.Types
 import Prelude hiding (any)
+import qualified Prelude as R (any)
 
 stylesheet :: Stream s m Char => ParsecT s u m [Statement]
 stylesheet = do
@@ -187,35 +191,47 @@ selector :: Stream s m Char => ParsecT s u m Selector
 selector =
     simpleSel >>= \s1 -> (
       (try (spaces1 >> selector) >>= \s2 ->
-       return (DescendSel s1 s2)
-      )
+       composeSel DescendSel s1 s2)
       <|>
       (try (spaces >> char '>') >> spaces >> selector >>= \s2 ->
-       return (ChildSel s1 s2)
-      )
+       composeSel ChildSel s1 s2)
       <|>
       (try (spaces >> char '+') >> spaces >> selector >>= \s2 ->
-       return (AdjSel s1 s2)
-      )
+       composeSel AdjSel s1 s2)
       <|>
-      return s1
+      return (SimpleSel s1)
     )
 
-simpleSel :: Stream s m Char => ParsecT s u m Selector
+simpleSel :: Stream s m Char => ParsecT s u m SimpleSel
 simpleSel =
     (typeSel >>= \t ->
      many (try (spaces >> subSel)) >>= \s ->
-     return (SimpleSel (TypeSel t s))
+     return (TypeSel t s)
     )
     <|>
     (univSel >>
      many (try (spaces >> subSel)) >>= \s ->
-     return (SimpleSel (UnivSel s))
+     return (UnivSel s)
     )
     <|>
     (many1 (try (spaces >> subSel)) >>= \s ->
-     return (SimpleSel (UnivSel s))
+     return (UnivSel s)
     )
+
+composeSel :: Stream s m Char =>
+              (Selector -> Selector -> Selector) -> SimpleSel -> Selector ->
+              ParsecT s u m Selector
+composeSel op s1 s2 =
+    if (hasPseudoElement s1)
+        then fail "pseudo-elements may only be appended after the last simple selector of the selector."
+        else return (op (SimpleSel s1) s2)
+
+hasPseudoElement :: SimpleSel -> Bool
+hasPseudoElement s = R.any isPseudoElement (getSubSelList s)
+
+isPseudoElement :: SubSel -> Bool
+isPseudoElement (SSPseudoElementSel _) = True
+isPseudoElement _ = False
 
 {- NOTE: typeSel is not lexeme parser. -}
 typeSel :: Stream s m Char => ParsecT s u m String
@@ -232,7 +248,10 @@ subSel =
     classSel
     <|>
     idSel
-
+    <|>
+    (pseudoClassSel >>= \s -> return (SSPseudoClassSel s))
+    <|>
+    (pseudoElementSel >>= \s -> return (SSPseudoElementSel s))
 
 attrSel :: Stream s m Char => ParsecT s u m AttrSel
 attrSel = between (char '[' >> spaces) (char ']') (
@@ -259,16 +278,39 @@ classSel = do
     n <- name
     return (ClassSel n)
 
-{- Note: No space is allow after '#'. -}
+{- Note: No space is allowed after '#'. -}
 idSel :: Stream s m Char => ParsecT s u m SubSel
 idSel = do
     char '#'
     i <- ident
     return (IdSel i)
 
+pseudoClassSel :: Stream s m Char => ParsecT s u m PseudoClassSel
+pseudoClassSel = choice
+    [ try (keywordCase ":first-child") >> return PCSFirstChild
+    , try (keywordCase ":link") >> return PCSLink
+    , try (keywordCase ":visited") >> return PCSVisited
+    , try (keywordCase ":hover") >> return PCSHover
+    , try (keywordCase ":active") >> return PCSActive
+    , try (keywordCase ":focus") >> return PCSFocus
+    , try (keywordCase ":lang") >> parens identifier >>= \i ->
+        return (PCSLang i)
+    ]
+
+pseudoElementSel :: Stream s m Char => ParsecT s u m PseudoElementSel
+pseudoElementSel = choice
+    [ try (keywordCase ":first-line") >> return PESFirstLine
+    , try (keywordCase ":first-letter") >> return PESFirstLetter
+    , try (keywordCase ":before") >> return PESBefore
+    , try (keywordCase ":after") >> return PESAfter
+    ]
+
 declarationBlock :: Stream s m Char => ParsecT s u m [Declaration]
 declarationBlock =
     spaces >> braces (sepEndBy (declaration <?> "declaration") semi)
+
+parens :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+parens = between (symbol "(") (symbol ")")
 
 braces :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 braces = between (symbol "{") (symbol "}")

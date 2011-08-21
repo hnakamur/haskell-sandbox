@@ -8,8 +8,11 @@ module SandBox.Text.CSS.Types
   , Statement(..)
   , Selector(..)
   , SimpleSel(..)
+  , getSubSelList
   , Element
   , SubSel(..)
+  , PseudoClassSel(..)
+  , PseudoElementSel(..)
   , AttrSel(..)
   , AttrName
   , AttrVal
@@ -170,15 +173,36 @@ data SimpleSel = UnivSel [SubSel]
                | TypeSel Element [SubSel]
                deriving (Eq, Ord, Show)
 
+getSubSelList :: SimpleSel -> [SubSel]
+getSubSelList (UnivSel ss) = ss
+getSubSelList (TypeSel _ ss) = ss
+
 type Element = String
 
 data SubSel = AttrSel AttrSel
             | ClassSel Class
             | IdSel Id
+            | SSPseudoClassSel PseudoClassSel
+            | SSPseudoElementSel PseudoElementSel
             deriving (Eq, Ord, Show)
 
 type Class = String
 type Id = String
+
+data PseudoClassSel = PCSFirstChild
+                    | PCSLink
+                    | PCSVisited
+                    | PCSHover
+                    | PCSActive
+                    | PCSFocus
+                    | PCSLang String
+                    deriving (Eq, Ord, Show)
+
+data PseudoElementSel = PESFirstLine
+                      | PESFirstLetter
+                      | PESBefore
+                      | PESAfter
+                      deriving (Eq, Ord, Show)
 
 data AttrSel = AttrExists AttrName
              | AttrEq AttrName AttrVal
