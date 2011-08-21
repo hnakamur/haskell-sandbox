@@ -457,28 +457,21 @@ lengthVal = do
     s <- num
     let n = read s :: Double
     if n == 0
-    then optional (choice
-           [ try (keywordCase "em")
-           , try (keywordCase "ex")
-           , try (keywordCase "in")
-           , try (keywordCase "cm")
-           , try (keywordCase "mm")
-           , try (keywordCase "pt")
-           , try (keywordCase "pc")
-           , try (keywordCase "px")
-           ]
-         ) >> return Zero
-    else choice 
-           [ try (keywordCase "em") >> return (Em n)
-           , try (keywordCase "ex") >> return (Ex n)
-           , try (keywordCase "in") >> return (In n)
-           , try (keywordCase "cm") >> return (Cm n)
-           , try (keywordCase "mm") >> return (Mm n)
-           , try (keywordCase "pt") >> return (Pt n)
-           , try (keywordCase "pc") >> return (Pc n)
-           , try (keywordCase "px") >> return (Px n)
-           , fail "length unit needed after non-zero value"
-           ]
+    then optional lengthUnit >> return (Length 0 Nothing)
+    else (lengthUnit >>= \u -> return (Length n (Just u)))
+         <|> fail "length unit needed after non-zero value"
+
+lengthUnit :: Stream s m Char => ParsecT s u m LengthUnit
+lengthUnit = choice 
+               [ try (keywordCase "em") >> return Em
+               , try (keywordCase "ex") >> return Ex
+               , try (keywordCase "in") >> return In
+               , try (keywordCase "cm") >> return Cm
+               , try (keywordCase "mm") >> return Mm
+               , try (keywordCase "pt") >> return Pt
+               , try (keywordCase "pc") >> return Pc
+               , try (keywordCase "px") >> return Px
+               ]
 
 pvWhiteSpace :: Stream s m Char => ParsecT s u m PVWhiteSpace
 pvWhiteSpace = choice

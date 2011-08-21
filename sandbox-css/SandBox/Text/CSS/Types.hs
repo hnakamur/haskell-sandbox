@@ -22,6 +22,7 @@ module SandBox.Text.CSS.Types
   , ValueElem(..)
   , Color(..)
   , Length(..)
+  , LengthUnit(..)
   , Percentage(..)
   , URI(..)
   , PVWhiteSpace(..)
@@ -123,16 +124,18 @@ toRGBColor (BasicNamedColor Blue)    = RGBColor 0 0 255
 toRGBColor (BasicNamedColor Teal)    = RGBColor 0 128 128
 toRGBColor (BasicNamedColor Aqua)    = RGBColor 0 255 255
 
-data Length = Zero
-            | Em Double
-            | Ex Double
-            | In Double
-            | Cm Double
-            | Mm Double
-            | Pt Double
-            | Pc Double
-            | Px Double
+data Length = Length Double (Maybe LengthUnit)
             deriving (Eq, Ord, Show)
+
+data LengthUnit = Em
+                | Ex
+                | In
+                | Cm
+                | Mm
+                | Pt
+                | Pc
+                | Px
+                deriving (Eq, Ord, Show)
 
 data Percentage = Percentage Double
                 deriving (Eq, Ord, Show)
