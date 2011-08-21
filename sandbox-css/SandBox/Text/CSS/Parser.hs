@@ -3,6 +3,7 @@ module SandBox.Text.CSS.Parser
     ( 
 stylesheet
 , selector
+, atRule
 , declaration
 , value
 , block
@@ -12,6 +13,7 @@ stylesheet
 , ident
 , name
 , num
+, int
 , badstring
 , string
 , unicode
@@ -29,6 +31,9 @@ stylesheet
 , attrSel
 , simpleSel
 , strCase
+, keyword
+, lengthVal
+, pvWhiteSpace
     ) where
 
 import Control.Monad (liftM)
@@ -55,8 +60,9 @@ statement = atRule <|> ruleSet
 atRule :: Stream s m Char => ParsecT s u m Statement
 atRule = do
     k <- atKeyword
-    spaces
-    return (AtRule k [] Nothing)
+    xs <- many (spaces >> any)
+    b <- (optionMaybe (try (spaces >> block)) <|> return Nothing)
+    return (AtRule k xs b)
 
 ruleSet :: Stream s m Char => ParsecT s u m Statement
 ruleSet = do
@@ -282,11 +288,12 @@ any :: Stream s m Char => ParsecT s u m Any
 any = do
     a <- choice [ try identifier >>= \i -> return (Ident i)
                 , try stringLit >>= \s -> return (CSSString s)
-                , try percentage
+                {-, try percentage-}
                 , try dimension
                 , try number
-                , try uri
+                {-, try uri-}
                 , try hash
+                , try (symbol ":") >>= \s -> return Colon
                 ]
     spaces
     return a
@@ -315,19 +322,13 @@ number = do
     n <- num
     return (Number n)
 
-percentage :: Stream s m Char => ParsecT s u m Any
-percentage = do
-    n <- num
-    char '%'
-    return (Percentage n)
-
 dimension :: Stream s m Char => ParsecT s u m Any
 dimension = do
     n <- num
     i <- ident
     return (Dimension n i)
 
-uri :: Stream s m Char => ParsecT s u m Any
+uri :: Stream s m Char => ParsecT s u m URI
 uri = do
     between (S.string "url(" >> spaces) (spaces >> S.string ")")
             (uriContent >>= \c -> return (URI c))
@@ -341,6 +342,42 @@ uriContent = try string
                           , escape
                           ]
                  )
+
+lengthVal :: Stream s m Char => ParsecT s u m Length
+lengthVal = do
+    s <- num
+    let n = read s :: Double
+    (    (try (keyword "em") >> return (Em n))
+     <|> (try (keyword "ex") >> return (Ex n))
+     <|> (try (keyword "in") >> return (In n))
+     <|> (try (keyword "cm") >> return (Cm n))
+     <|> (try (keyword "mm") >> return (Mm n))
+     <|> (try (keyword "pt") >> return (Pt n))
+     <|> (try (keyword "pc") >> return (Pc n))
+     <|> (try (keyword "px") >> return (Px n))
+     )
+
+pvWhiteSpace :: Stream s m Char => ParsecT s u m PVWhiteSpace
+pvWhiteSpace = choice
+    [ try (keyword "normal") >> return PVWhiteSpaceNormal
+    , try (keyword "pre") >> return PVWhiteSpacePre
+    , try (keyword "nowrap") >> return PVWhiteSpaceNoWrap
+    , try (keyword "pre-wrap") >> return PVWhiteSpacePreWrap
+    , try (keyword "pre-line") >> return PVWhiteSpacePreLine
+    ,     (keyword "inherit") >> return PVWhiteSpaceInherit
+    ]
+
+percentage :: Stream s m Char => ParsecT s u m Percentage
+percentage = do
+    n <- num
+    char '%'
+    return (Percentage (read n :: Double))
+
+keyword :: Stream s m Char => String -> ParsecT s u m String
+keyword name = do
+    n <- strCase name <?> name
+    notFollowedBy nmchar <?> ("end of " ++ show name)
+    return n
 
 ident :: Stream s m Char => ParsecT s u m String
 ident = do
@@ -439,7 +476,10 @@ num = try (
           ; return (int ++ dot:frac)
           }
       )
-      <|> many1 digit
+      <|> int
+
+int :: Stream s m Char => ParsecT s u m String
+int = many1 digit
 
 spaces1 :: Stream s m Char => ParsecT s u m String
 spaces1 = many1 space

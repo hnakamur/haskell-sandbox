@@ -17,6 +17,10 @@ module SandBox.Text.CSS.Types
   , Value(..)
   , ValueElem(..)
   , Color(..)
+  , Length(..)
+  , Percentage(..)
+  , URI(..)
+  , PVWhiteSpace(..)
   , BasicColorKeyword(..)
   , toRGBColor
   , basicNameToColor
@@ -98,6 +102,30 @@ toRGBColor (BasicNamedColor Blue)    = RGBColor 0 0 255
 toRGBColor (BasicNamedColor Teal)    = RGBColor 0 128 128
 toRGBColor (BasicNamedColor Aqua)    = RGBColor 0 255 255
 
+data Length = Em Double
+            | Ex Double
+            | In Double
+            | Cm Double
+            | Mm Double
+            | Pt Double
+            | Pc Double
+            | Px Double
+            deriving (Eq, Ord, Show)
+
+data Percentage = Percentage Double
+                deriving (Eq, Ord, Show)
+
+data PVWhiteSpace = PVWhiteSpaceNormal
+                  | PVWhiteSpacePre
+                  | PVWhiteSpaceNoWrap
+                  | PVWhiteSpacePreWrap
+                  | PVWhiteSpacePreLine
+                  | PVWhiteSpaceInherit
+                  deriving (Eq, Ord, Show)
+
+data URI = URI String
+         deriving (Eq, Ord, Show)
+
 data StyleSheet = StyleSheet [Statement]
                 deriving (Eq, Ord, Show)
 
@@ -144,12 +172,13 @@ data AtKeyword = AtKeyword String
 
 data Any = Ident String
          | Number String
-         | Percentage String
+         {-| Percentage String-}
          | Dimension String String
          | CSSString String
-         | URI String
+         {-| URI String-}
          | Hash String
          | UnicodeRange Char Char
+         | Colon
          deriving (Eq, Ord, Show)
 
 data Block = Block [BlockElem]
