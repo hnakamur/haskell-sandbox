@@ -59,9 +59,9 @@ tests = test
     , testParse ident "font-family" "font-family"
     , testParse ident "-webkit-animation" "-webkit-animation"
     , testParse uri "url('http://www.example.com/redball.png')"
-                    (URI "http://www.example.com/redball.png")
+                    "http://www.example.com/redball.png"
     , testParse uri "url(http://www.example.com/redball.png)"
-                    (URI "http://www.example.com/redball.png")
+                    "http://www.example.com/redball.png"
     , testParse declaration
                 "color: blue"
                 (Declaration "color"

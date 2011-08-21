@@ -31,9 +31,13 @@ stylesheet
 , attrSel
 , simpleSel
 , strCase
-, keyword
+, keywordCase
 , lengthVal
 , pvWhiteSpace
+, atCharset
+, atImport
+, atPage
+, marginDecl
     ) where
 
 import Control.Monad (liftM)
@@ -63,6 +67,100 @@ atRule = do
     xs <- many (spaces >> any)
     b <- (optionMaybe (try (spaces >> block)) <|> return Nothing)
     return (AtRule k xs b)
+
+atCharset :: Stream s m Char => ParsecT s u m AtCharset
+atCharset = do
+    S.string "@charset \""
+    n <- encodingName
+    S.string "\";"
+    return (AtCharset n)
+
+encodingName :: Stream s m Char => ParsecT s u m EncodingName
+encodingName = name
+
+atImport :: Stream s m Char => ParsecT s u m AtImport
+atImport = do
+    keywordCase "@import"
+    spaces
+    u <- (uri <|> string)
+    spaces
+    ts <- (try mediaTypeList <|> return [])
+    spaces
+    semi
+    return (AtImport u ts)
+
+mediaTypeList :: Stream s m Char => ParsecT s u m [MediaType]
+mediaTypeList = (try (keywordCase "all") >> return [])
+                <|>
+                (try (sepBy1 mediaType comma))
+  where
+    mediaType :: Stream s m Char => ParsecT s u m MediaType
+    mediaType = choice
+                  [ try (keywordCase "braille") >> return MTBraille
+                  , try (keywordCase "embossed") >> return MTHandheld
+                  , try (keywordCase "print") >> return MTPrint
+                  , try (keywordCase "projection") >> return MTProjection
+                  , try (keywordCase "screen") >> return MTScreen
+                  , try (keywordCase "speech") >> return MTSpeech
+                  , try (keywordCase "tty") >> return MTTty
+                  , try (keywordCase "tv") >> return MTTv
+                  ]
+
+atPage :: Stream s m Char => ParsecT s u m AtPage
+atPage = do
+    keywordCase "@page"
+    spaces
+    s <- optionMaybe pageSelector
+    spaces
+    b <- atPageBlock
+    return (AtPage s b)
+
+pageSelector :: Stream s m Char => ParsecT s u m PageSelector
+pageSelector = choice
+    [ try (keyword ":first") >> return PSFirst
+    , try (keyword ":left") >> return PSLeft
+    , try (keyword ":right") >> return PSRight
+    ]
+
+atPageBlock :: Stream s m Char => ParsecT s u m [MarginDecl]
+atPageBlock = braces (sepEndBy (marginDecl <?> "margin declaration") semi)
+
+marginDecl :: Stream s m Char => ParsecT s u m MarginDecl
+marginDecl = choice
+    [ singleDecl "margin-top" >>= \v -> return (MarginTopDecl v)
+    , singleDecl "margin-bottom" >>= \v -> return (MarginBottomDecl v)
+    , singleDecl "margin-right" >>= \v -> return (MarginRightDecl v)
+    , singleDecl "margin-left" >>= \v -> return (MarginLeftDecl v)
+    , shortHandDecl >>= \vs -> return (MarginDecl vs)
+    ]
+  where
+    singleDecl :: Stream s m Char => String -> ParsecT s u m MarginVal
+    singleDecl name = do
+        try (keyword name)
+        spaces
+        colon
+        choice
+          [ try marginWidth >>= \w -> return (MVWidth w)
+          , try (keywordCase "inherit") >> return MVInherit
+          ]
+    shortHandDecl :: Stream s m Char => ParsecT s u m [MarginVal]
+    shortHandDecl = do
+        try (keyword "margin")
+        spaces
+        colon
+        choice
+          [ try (countRange 1 4 (marginWidth >>= \w -> spaces >>
+                                 return (MVWidth w)))
+          , try (keywordCase "inherit") >> return [MVInherit]
+          ]
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+marginWidth :: Stream s m Char => ParsecT s u m MarginWidth
+marginWidth = choice
+    [ try percentage >>= \p -> return (MWPercentage p)
+    , try lengthVal >>= \l -> return (MWLength l)
+    , try (keywordCase "auto") >> return MWAuto
+    ]
 
 ruleSet :: Stream s m Char => ParsecT s u m Statement
 ruleSet = do
@@ -154,7 +252,7 @@ idSel = do
     return (IdSel i)
 
 declarationBlock :: Stream s m Char => ParsecT s u m [Declaration]
-declarationBlock = braces (sepBy (declaration <?> "declaration") semi)
+declarationBlock = braces (sepEndBy (declaration <?> "declaration") semi)
 
 braces :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
 braces = between (symbol "{") (symbol "}")
@@ -331,7 +429,7 @@ dimension = do
 uri :: Stream s m Char => ParsecT s u m URI
 uri = do
     between (S.string "url(" >> spaces) (spaces >> S.string ")")
-            (uriContent >>= \c -> return (URI c))
+            uriContent
 
 
 uriContent :: Stream s m Char => ParsecT s u m String
@@ -347,24 +445,38 @@ lengthVal :: Stream s m Char => ParsecT s u m Length
 lengthVal = do
     s <- num
     let n = read s :: Double
-    (    (try (keyword "em") >> return (Em n))
-     <|> (try (keyword "ex") >> return (Ex n))
-     <|> (try (keyword "in") >> return (In n))
-     <|> (try (keyword "cm") >> return (Cm n))
-     <|> (try (keyword "mm") >> return (Mm n))
-     <|> (try (keyword "pt") >> return (Pt n))
-     <|> (try (keyword "pc") >> return (Pc n))
-     <|> (try (keyword "px") >> return (Px n))
-     )
+    if n == 0
+    then optional (choice
+           [ try (keywordCase "em")
+           , try (keywordCase "ex")
+           , try (keywordCase "in")
+           , try (keywordCase "cm")
+           , try (keywordCase "mm")
+           , try (keywordCase "pt")
+           , try (keywordCase "pc")
+           , try (keywordCase "px")
+           ]
+         ) >> return Zero
+    else choice 
+           [ try (keywordCase "em") >> return (Em n)
+           , try (keywordCase "ex") >> return (Ex n)
+           , try (keywordCase "in") >> return (In n)
+           , try (keywordCase "cm") >> return (Cm n)
+           , try (keywordCase "mm") >> return (Mm n)
+           , try (keywordCase "pt") >> return (Pt n)
+           , try (keywordCase "pc") >> return (Pc n)
+           , try (keywordCase "px") >> return (Px n)
+           , fail "length unit needed after non-zero value"
+           ]
 
 pvWhiteSpace :: Stream s m Char => ParsecT s u m PVWhiteSpace
 pvWhiteSpace = choice
-    [ try (keyword "normal") >> return PVWhiteSpaceNormal
-    , try (keyword "pre") >> return PVWhiteSpacePre
-    , try (keyword "nowrap") >> return PVWhiteSpaceNoWrap
-    , try (keyword "pre-wrap") >> return PVWhiteSpacePreWrap
-    , try (keyword "pre-line") >> return PVWhiteSpacePreLine
-    ,     (keyword "inherit") >> return PVWhiteSpaceInherit
+    [ try (keywordCase "normal") >> return PVWhiteSpaceNormal
+    , try (keywordCase "pre") >> return PVWhiteSpacePre
+    , try (keywordCase "nowrap") >> return PVWhiteSpaceNoWrap
+    , try (keywordCase "pre-wrap") >> return PVWhiteSpacePreWrap
+    , try (keywordCase "pre-line") >> return PVWhiteSpacePreLine
+    ,     (keywordCase "inherit") >> return PVWhiteSpaceInherit
     ]
 
 percentage :: Stream s m Char => ParsecT s u m Percentage
@@ -375,6 +487,12 @@ percentage = do
 
 keyword :: Stream s m Char => String -> ParsecT s u m String
 keyword name = do
+    n <- S.string name <?> name
+    notFollowedBy nmchar <?> ("end of " ++ show name)
+    return n
+
+keywordCase :: Stream s m Char => String -> ParsecT s u m String
+keywordCase name = do
     n <- strCase name <?> name
     notFollowedBy nmchar <?> ("end of " ++ show name)
     return n

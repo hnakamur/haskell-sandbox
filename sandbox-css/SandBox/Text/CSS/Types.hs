@@ -1,5 +1,8 @@
 module SandBox.Text.CSS.Types
-  ( TokenData(..)
+  ( EncodingName
+  , AtCharset(..)
+  , AtImport(..)
+  , TokenData(..)
   , StyleSheet(..)
   , Statement(..)
   , Selector(..)
@@ -24,7 +27,16 @@ module SandBox.Text.CSS.Types
   , BasicColorKeyword(..)
   , toRGBColor
   , basicNameToColor
-
+  , MediaType(..)
+  , mediaTypeFromStr
+  , mediaTypeToStr
+  , mediaTypes
+  , Margin(..)
+  , AtPage(..)
+  , PageSelector(..)
+  , MarginDecl(..)
+  , MarginVal(..)
+  , MarginWidth(..)
   {-, tdIdent
   , tdString
   , tdNum
@@ -37,6 +49,14 @@ module SandBox.Text.CSS.Types
 import Control.Monad (liftM)
 import Data.Char (toLower)
 import qualified Data.Map as M (Map, fromList, lookup)
+
+type EncodingName = String
+
+data AtCharset = AtCharset EncodingName
+               deriving (Eq, Ord, Show)
+
+data AtImport = AtImport URI [MediaType]
+              deriving (Eq, Ord, Show)
 
 data Color = BasicNamedColor BasicColorKeyword
            | RGBColor Int Int Int
@@ -102,7 +122,8 @@ toRGBColor (BasicNamedColor Blue)    = RGBColor 0 0 255
 toRGBColor (BasicNamedColor Teal)    = RGBColor 0 128 128
 toRGBColor (BasicNamedColor Aqua)    = RGBColor 0 255 255
 
-data Length = Em Double
+data Length = Zero
+            | Em Double
             | Ex Double
             | In Double
             | Cm Double
@@ -123,8 +144,7 @@ data PVWhiteSpace = PVWhiteSpaceNormal
                   | PVWhiteSpaceInherit
                   deriving (Eq, Ord, Show)
 
-data URI = URI String
-         deriving (Eq, Ord, Show)
+type URI = String
 
 data StyleSheet = StyleSheet [Statement]
                 deriving (Eq, Ord, Show)
@@ -162,10 +182,84 @@ data AttrSel = AttrExists AttrName
 type AttrName = String
 type AttrVal = String
 
+data MediaType = MTBraille
+               | MTEmbossed
+               | MTHandheld
+               | MTPrint
+               | MTProjection
+               | MTScreen
+               | MTSpeech
+               | MTTty
+               | MTTv
+               deriving (Eq, Ord, Show)
+
+mediaTypeFromStr :: String -> Maybe MediaType
+mediaTypeFromStr s = M.lookup (toLowerStr s) mediaTypeMap
+
+mediaTypeToStr :: MediaType -> String
+mediaTypeToStr t = case (M.lookup t mediaTypeRevMap) of
+                     Just s -> s
+                     Nothing -> error "invalid mediaType"
+
+mediaTypeRevMap :: M.Map MediaType String 
+mediaTypeRevMap = M.fromList (map (\(s, t) -> (t, s)) mediaTypeAssocList)
+
+mediaTypes :: [String]
+mediaTypes = map fst mediaTypeAssocList
+
+mediaTypeMap :: M.Map String MediaType
+mediaTypeMap = M.fromList mediaTypeAssocList
+
+mediaTypeAssocList :: [(String, MediaType)]
+mediaTypeAssocList =
+  [ ("braille", MTBraille)
+  , ("embossed", MTHandheld)
+  , ("print", MTPrint)
+  , ("projection", MTProjection)
+  , ("screen", MTScreen)
+  , ("speech", MTSpeech)
+  , ("tty", MTTty)
+  , ("tv", MTTv)
+  ]
+
+toLowerStr :: String -> String
+toLowerStr = map toLower
+
 {-data AttrVal = AttrValStr String
              | AttrValId String
              deriving (Eq, Ord, Show)-}
 
+data AtPage = AtPage (Maybe PageSelector) [MarginDecl]
+            deriving (Eq, Ord, Show)
+
+data PageSelector = PSFirst
+                  | PSLeft
+                  | PSRight
+                  deriving (Eq, Ord, Show)
+
+data Margin = Margin
+                { topMargin :: MarginVal
+                , rightMargin :: MarginVal
+                , bottomMargin :: MarginVal
+                , leftMargin :: MarginVal
+                }
+            deriving (Eq, Ord, Show)
+
+data MarginDecl = MarginDecl [MarginVal]
+                | MarginTopDecl MarginVal
+                | MarginBottomDecl MarginVal
+                | MarginRightDecl MarginVal
+                | MarginLeftDecl MarginVal
+                deriving (Eq, Ord, Show)
+
+data MarginVal = MVWidth MarginWidth
+               | MVInherit
+               deriving (Eq, Ord, Show)
+
+data MarginWidth = MWLength Length
+                 | MWPercentage Percentage
+                 | MWAuto
+                 deriving (Eq, Ord, Show)
 
 data AtKeyword = AtKeyword String
                deriving (Eq, Ord, Show)
