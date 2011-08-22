@@ -17,9 +17,28 @@ tests :: Test
 tests = test
     [ testParse
         stylesheet
-        "h1 {color:red}" 
-        [RuleSet [(SimpleSel (TypeSel "h1" []))]
-                 [Declaration "color" (Value [VEAny (Ident "red")])]]
+        "h1 {padding-top:10px}" 
+        [RuleSet
+          [(SimpleSel (TypeSel "h1" []))]
+          [DPadding (PaddingTopDecl (PVWidth (PWLength (Length 10.0 (Just Px)))))]]
+    , testParse
+        stylesheet
+        "h1 {border-top-color:red}" 
+        [RuleSet
+          [(SimpleSel (TypeSel "h1" []))]
+          [DBorderColor (BorderTopColorDecl (BCVColor (BCColor (BasicNamedColor Red))))]]
+    , testParse
+        stylesheet
+        "h1 {border-top-style:dashed}" 
+        [RuleSet
+          [(SimpleSel (TypeSel "h1" []))]
+          [DBorderStyle (BorderTopStyleDecl (BSVStyle BSDashed))]]
+    , testParse
+        stylesheet
+        "p {border: solid red}" 
+        [RuleSet
+          [SimpleSel (TypeSel "p" [])]
+          [DBorder (BorderDecl (BVBorder [BVEStyle BSSolid,BVEColor (BCColor (BasicNamedColor Red))]))]]
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "abc" "abc"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "acb" "acb"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "cab" "cab"
@@ -63,10 +82,6 @@ tests = test
                     "http://www.example.com/redball.png"
     , testParse uri "url(http://www.example.com/redball.png)"
                     "http://www.example.com/redball.png"
-    , testParse declaration
-                "color: blue"
-                (Declaration "color"
-                             (Value [VEAny (Ident "blue")]))
     {-, testParse num "123" "123"
     , testParse num "12.34" "12.34"
     , testParse num ".34" ".34"-}

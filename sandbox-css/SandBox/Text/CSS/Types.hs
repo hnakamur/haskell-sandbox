@@ -36,12 +36,26 @@ module SandBox.Text.CSS.Types
   , mediaTypeFromStr
   , mediaTypeToStr
   , mediaTypes
-  , Margin(..)
   , AtPage(..)
   , PageSelector(..)
   , MarginDecl(..)
   , MarginVal(..)
   , MarginWidth(..)
+  , PaddingDecl(..)
+  , PaddingVal(..)
+  , PaddingWidth(..)
+  , BorderWidthDecl(..)
+  , BorderWidthVal(..)
+  , BorderWidth(..)
+  , BorderColorDecl(..)
+  , BorderColorVal(..)
+  , BorderColor(..)
+  , BorderStyleDecl(..)
+  , BorderStyleVal(..)
+  , BorderStyle(..)
+  , BorderDecl(..)
+  , BorderVal(..)
+  , BorderValElem(..)
   , Important
   {-, tdIdent
   , tdString
@@ -268,14 +282,6 @@ data PageSelector = PSFirst
                   | PSRight
                   deriving (Eq, Ord, Show)
 
-data Margin = Margin
-                { topMargin :: MarginVal
-                , rightMargin :: MarginVal
-                , bottomMargin :: MarginVal
-                , leftMargin :: MarginVal
-                }
-            deriving (Eq, Ord, Show)
-
 data MarginDecl = MarginDecl [MarginVal]
                 | MarginTopDecl MarginVal
                 | MarginBottomDecl MarginVal
@@ -291,6 +297,98 @@ data MarginWidth = MWLength Length
                  | MWPercentage Percentage
                  | MWAuto
                  deriving (Eq, Ord, Show)
+
+
+data PaddingDecl = PaddingDecl [PaddingVal]
+                 | PaddingTopDecl PaddingVal
+                 | PaddingBottomDecl PaddingVal
+                 | PaddingRightDecl PaddingVal
+                 | PaddingLeftDecl PaddingVal
+                 deriving (Eq, Ord, Show)
+
+data PaddingVal = PVWidth PaddingWidth
+                | PVInherit
+                deriving (Eq, Ord, Show)
+
+data PaddingWidth = PWLength Length
+                  | PWPercentage Percentage
+                  deriving (Eq, Ord, Show)
+
+
+data BorderWidthDecl = BorderWidthDecl [BorderWidthVal]
+                     | BorderTopWidthDecl BorderWidthVal
+                     | BorderBottomWidthDecl BorderWidthVal
+                     | BorderRightWidthDecl BorderWidthVal
+                     | BorderLeftWidthDecl BorderWidthVal
+                     deriving (Eq, Ord, Show)
+
+data BorderWidthVal = BWVWidth BorderWidth
+                    | BWVInherit
+                    deriving (Eq, Ord, Show)
+
+data BorderWidth = BWLength Length
+                 | BWThin
+                 | BWMedium
+                 | BWThick
+                 deriving (Eq, Ord, Show)
+
+
+data BorderColorDecl = BorderColorDecl [BorderColorVal]
+                     | BorderTopColorDecl BorderColorVal
+                     | BorderBottomColorDecl BorderColorVal
+                     | BorderRightColorDecl BorderColorVal
+                     | BorderLeftColorDecl BorderColorVal
+                     deriving (Eq, Ord, Show)
+
+data BorderColorVal = BCVColor BorderColor
+                    | BCVInherit
+                    deriving (Eq, Ord, Show)
+
+data BorderColor = BCColor Color
+                 | BCTransparent
+                 deriving (Eq, Ord, Show)
+
+
+data BorderStyleDecl = BorderStyleDecl [BorderStyleVal]
+                     | BorderTopStyleDecl BorderStyleVal
+                     | BorderBottomStyleDecl BorderStyleVal
+                     | BorderRightStyleDecl BorderStyleVal
+                     | BorderLeftStyleDecl BorderStyleVal
+                     deriving (Eq, Ord, Show)
+
+data BorderStyleVal = BSVStyle BorderStyle
+                    | BSVInherit
+                    deriving (Eq, Ord, Show)
+
+data BorderStyle = BSNone
+                 | BSHidden
+                 | BSDotted
+                 | BSDashed
+                 | BSSolid
+                 | BSDouble
+                 | BSGroove
+                 | BSRidge
+                 | BSInset
+                 | BSOutset
+                 deriving (Eq, Ord, Show)
+
+
+data BorderDecl = BorderDecl BorderVal
+                | BorderTopDecl BorderVal
+                | BorderBottomDecl BorderVal
+                | BorderRightDecl BorderVal
+                | BorderLeftDecl BorderVal
+                deriving (Eq, Ord, Show)
+
+data BorderVal = BVBorder [BorderValElem]
+               | BVInherit
+               deriving (Eq, Ord, Show)
+
+data BorderValElem = BVEWidth BorderWidth
+                   | BVEStyle BorderStyle
+                   | BVEColor BorderColor
+                   deriving (Eq, Ord, Show)
+
 
 data AtMedia = AtMedia [MediaType] [Statement]
              deriving (Eq, Ord, Show)
@@ -317,8 +415,16 @@ data BlockElem = BEAny Any
                | BEAtKeyword AtKeyword
                deriving (Eq, Ord, Show)
 
-data Declaration = Declaration String Value
+
+data Declaration = DMargin MarginDecl
+                 | DPadding PaddingDecl
+                 | DBorderWidth BorderWidthDecl
+                 | DBorderColor BorderColorDecl
+                 | DBorderStyle BorderStyleDecl
+                 | DBorder BorderDecl
                  deriving (Eq, Ord, Show)
+{-data Declaration = Declaration String Value
+                 deriving (Eq, Ord, Show)-}
 
 data Value = Value [ValueElem]
            deriving (Eq, Ord, Show)

@@ -44,6 +44,8 @@ stylesheet
 , important
 , hasPseudoElement
 , composeSel
+, paddingDecl
+, borderWidthDecl
     ) where
 
 import Control.Monad (liftM)
@@ -168,6 +170,214 @@ marginWidth = choice
     , try lengthVal >>= \l -> return (MWLength l)
     , try (keywordCase "auto") >> return MWAuto
     ]
+
+
+paddingDecl :: Stream s m Char => ParsecT s u m PaddingDecl
+paddingDecl = choice
+    [ singleDecl "padding-top" >>= \v -> return (PaddingTopDecl v)
+    , singleDecl "padding-bottom" >>= \v -> return (PaddingBottomDecl v)
+    , singleDecl "padding-right" >>= \v -> return (PaddingRightDecl v)
+    , singleDecl "padding-left" >>= \v -> return (PaddingLeftDecl v)
+    , shortHandDecl >>= \vs -> return (PaddingDecl vs)
+    ]
+  where
+    singleDecl :: Stream s m Char => String -> ParsecT s u m PaddingVal
+    singleDecl name = do
+        try (keyword name)
+        spaces
+        colon
+        choice
+          [ try paddingWidth >>= \w -> return (PVWidth w)
+          , try (keywordCase "inherit") >> return PVInherit
+          ]
+    shortHandDecl :: Stream s m Char => ParsecT s u m [PaddingVal]
+    shortHandDecl = do
+        try (keyword "padding")
+        spaces
+        colon
+        choice
+          [ try (countRange 1 4 (paddingWidth >>= \w -> spaces >>
+                                 return (PVWidth w)))
+          , try (keywordCase "inherit") >> return [PVInherit]
+          ]
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+paddingWidth :: Stream s m Char => ParsecT s u m PaddingWidth
+paddingWidth = choice
+    [ try percentage >>= \p -> return (PWPercentage p)
+    , try lengthVal >>= \l -> return (PWLength l)
+    ]
+
+
+borderWidthDecl :: Stream s m Char => ParsecT s u m BorderWidthDecl
+borderWidthDecl = choice
+    [ singleDecl "border-top-width" >>= \v ->
+        return (BorderTopWidthDecl v)
+    , singleDecl "border-bottom-width" >>= \v ->
+        return (BorderBottomWidthDecl v)
+    , singleDecl "border-right-width" >>= \v ->
+        return (BorderRightWidthDecl v)
+    , singleDecl "border-left-width" >>= \v ->
+        return (BorderLeftWidthDecl v)
+    , shortHandDecl >>= \vs -> return (BorderWidthDecl vs)
+    ]
+  where
+    singleDecl :: Stream s m Char => String -> ParsecT s u m BorderWidthVal
+    singleDecl name = do
+        try (keyword name)
+        spaces
+        colon
+        choice
+          [ try borderWidth >>= \w -> return (BWVWidth w)
+          , try (keywordCase "inherit") >> return BWVInherit
+          ]
+    shortHandDecl :: Stream s m Char => ParsecT s u m [BorderWidthVal]
+    shortHandDecl = do
+        try (keyword "border-width")
+        spaces
+        colon
+        choice
+          [ try (countRange 1 4 (borderWidth >>= \w -> spaces >>
+                                 return (BWVWidth w)))
+          , try (keywordCase "inherit") >> return [BWVInherit]
+          ]
+
+borderWidth :: Stream s m Char => ParsecT s u m BorderWidth
+borderWidth = choice
+    [ try (keywordCase "thin") >> return BWThin
+    , try (keywordCase "medium") >> return BWMedium
+    , try (keywordCase "thick") >> return BWThick
+    , try lengthVal >>= \l -> return (BWLength l)
+    ]
+
+
+borderColorDecl :: Stream s m Char => ParsecT s u m BorderColorDecl
+borderColorDecl = choice
+    [ singleDecl "border-top-color" >>= \v ->
+        return (BorderTopColorDecl v)
+    , singleDecl "border-bottom-color" >>= \v ->
+        return (BorderBottomColorDecl v)
+    , singleDecl "border-right-color" >>= \v ->
+        return (BorderRightColorDecl v)
+    , singleDecl "border-left-color" >>= \v ->
+        return (BorderLeftColorDecl v)
+    , shortHandDecl >>= \vs -> return (BorderColorDecl vs)
+    ]
+  where
+    singleDecl :: Stream s m Char => String -> ParsecT s u m BorderColorVal
+    singleDecl name = do
+        try (keyword name)
+        spaces
+        colon
+        choice
+          [ try borderColor >>= \c -> return (BCVColor c)
+          , try (keywordCase "inherit") >> return BCVInherit
+          ]
+    shortHandDecl :: Stream s m Char => ParsecT s u m [BorderColorVal]
+    shortHandDecl = do
+        try (keyword "border-color")
+        spaces
+        colon
+        choice
+          [ try (countRange 1 4 (borderColor >>= \c -> spaces >>
+                                 return (BCVColor c)))
+          , try (keywordCase "inherit") >> return [BCVInherit]
+          ]
+
+borderColor :: Stream s m Char => ParsecT s u m BorderColor
+borderColor = choice
+    [ try color >>= \c -> return (BCColor c)
+    , try (keywordCase "transparent") >> return BCTransparent
+    ]
+
+
+borderStyleDecl :: Stream s m Char => ParsecT s u m BorderStyleDecl
+borderStyleDecl = choice
+    [ singleDecl "border-top-style" >>= \v ->
+        return (BorderTopStyleDecl v)
+    , singleDecl "border-bottom-style" >>= \v ->
+        return (BorderBottomStyleDecl v)
+    , singleDecl "border-right-style" >>= \v ->
+        return (BorderRightStyleDecl v)
+    , singleDecl "border-left-style" >>= \v ->
+        return (BorderLeftStyleDecl v)
+    , shortHandDecl >>= \vs -> return (BorderStyleDecl vs)
+    ]
+  where
+    singleDecl :: Stream s m Char => String -> ParsecT s u m BorderStyleVal
+    singleDecl name = do
+        try (keyword name)
+        spaces
+        colon
+        choice
+          [ try borderStyle >>= \s -> return (BSVStyle s)
+          , try (keywordCase "inherit") >> return BSVInherit
+          ]
+    shortHandDecl :: Stream s m Char => ParsecT s u m [BorderStyleVal]
+    shortHandDecl = do
+        try (keyword "border-style")
+        spaces
+        colon
+        choice
+          [ try (countRange 1 4 (borderStyle >>= \s -> spaces >>
+                                 return (BSVStyle s)))
+          , try (keywordCase "inherit") >> return [BSVInherit]
+          ]
+
+borderStyle :: Stream s m Char => ParsecT s u m BorderStyle
+borderStyle = choice
+    [ try (keywordCase "none") >> return BSNone
+    , try (keywordCase "hidden") >> return BSHidden
+    , try (keywordCase "dotted") >> return BSDotted
+    , try (keywordCase "dashed") >> return BSDashed
+    , try (keywordCase "solid") >> return BSSolid
+    , try (keywordCase "double") >> return BSDouble
+    , try (keywordCase "groove") >> return BSGroove
+    , try (keywordCase "ridge") >> return BSRidge
+    , try (keywordCase "inset") >> return BSInset
+    , try (keywordCase "outset") >> return BSOutset
+    ]
+
+
+borderDecl :: Stream s m Char => ParsecT s u m BorderDecl
+borderDecl = choice
+    [ singleDecl "border-top" >>= \v ->
+        return (BorderTopDecl v)
+    , singleDecl "border-bottom" >>= \v ->
+        return (BorderBottomDecl v)
+    , singleDecl "border-right" >>= \v ->
+        return (BorderRightDecl v)
+    , singleDecl "border-left" >>= \v ->
+        return (BorderLeftDecl v)
+    , shortHandDecl >>= \vs -> return (BorderDecl vs)
+    ]
+  where
+    singleDecl :: Stream s m Char => String -> ParsecT s u m BorderVal
+    singleDecl name = do
+        try (keyword name)
+        spaces
+        colon
+        choice
+          [ try borderVal >>= \vs -> return (BVBorder vs)
+          , try (keywordCase "inherit") >> return BVInherit
+          ]
+    shortHandDecl :: Stream s m Char => ParsecT s u m BorderVal
+    shortHandDecl = do
+        try (keyword "border")
+        spaces
+        colon
+        choice
+          [ try borderVal >>= \vs -> return (BVBorder vs)
+          , try (keywordCase "inherit") >> return BVInherit
+          ]
+
+borderVal :: Stream s m Char => ParsecT s u m [BorderValElem]
+borderVal = oneOrMoreInAnyOrder
+    [ try borderWidth >>= \w -> spaces >> return (BVEWidth w)
+    , try borderStyle >>= \s -> spaces >> return (BVEStyle s)
+    , try borderColor >>= \c -> spaces >> return (BVEColor c)
+    ]
+
 
 atMedia :: Stream s m Char => ParsecT s u m AtMedia
 atMedia = do
@@ -407,11 +617,21 @@ asciiAlpha :: Stream s m Char => ParsecT s u m Char
 asciiAlpha = satisfy isAsciiAlpha
 
 declaration :: Stream s m Char => ParsecT s u m Declaration
+declaration = choice
+    [ try marginDecl >>= \d -> return (DMargin d)
+    , try paddingDecl >>= \d -> return (DPadding d)
+    , try borderWidthDecl >>= \d -> return (DBorderWidth d)
+    , try borderColorDecl >>= \d -> return (DBorderColor d)
+    , try borderStyleDecl >>= \d -> return (DBorderStyle d)
+    , try borderDecl >>= \d -> return (DBorder d)
+    ]
+
+{-declaration :: Stream s m Char => ParsecT s u m Declaration
 declaration = do
     n <- identifier
     colon
     v <- value
-    return (Declaration n v)
+    return (Declaration n v)-}
 
 value :: Stream s m Char => ParsecT s u m Value
 value = do
