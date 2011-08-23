@@ -56,6 +56,10 @@ module SandBox.Text.CSS.Types
   , BorderDecl(..)
   , BorderVal(..)
   , BorderValElem(..)
+  , DisplayVal(..)
+  , PositionVal(..)
+  , BoxOffsetVal(..)
+  , FloatVal(..)
   , Important
   {-, tdIdent
   , tdString
@@ -389,6 +393,43 @@ data BorderValElem = BVEWidth BorderWidth
                    | BVEColor BorderColor
                    deriving (Eq, Ord, Show)
 
+data DisplayVal = DVInline
+                | DVBlock
+                | DVListItem
+                | DVInlineBlock
+                | DVTable
+                | DVInlineTable
+                | DVTableRowGroup
+                | DVTableHeaderGroup
+                | DVTableFooterGroup
+                | DVTableRow
+                | DVTableColumnGroup
+                | DVTableColumn
+                | DVTableCell
+                | DVTableCaption
+                | DVNone
+                | DVInherit
+                deriving (Eq, Ord, Show)
+
+data PositionVal = PosStatic
+                 | PosRelative
+                 | PosAbsolute
+                 | PosFixed
+                 | PosInherit
+                 deriving (Eq, Ord, Show)
+
+data BoxOffsetVal = BOVLength Length
+                  | BOVPercentage Percentage
+                  | BOVAuto
+                  | BOVInherit
+                  deriving (Eq, Ord, Show)
+
+data FloatVal = FVLeft
+              | FVRight
+              | FVNone
+              | FVInherit
+              deriving (Eq, Ord, Show)
+
 
 data AtMedia = AtMedia [MediaType] [Statement]
              deriving (Eq, Ord, Show)
@@ -422,6 +463,13 @@ data Declaration = DMargin MarginDecl
                  | DBorderColor BorderColorDecl
                  | DBorderStyle BorderStyleDecl
                  | DBorder BorderDecl
+                 | DisplayDecl DisplayVal Important
+                 | PositionDecl PositionVal Important
+                 | TopDecl BoxOffsetVal Important
+                 | RightDecl BoxOffsetVal Important
+                 | BottomDecl BoxOffsetVal Important
+                 | LeftDecl BoxOffsetVal Important
+                 | FloatDecl FloatVal Important
                  deriving (Eq, Ord, Show)
 {-data Declaration = Declaration String Value
                  deriving (Eq, Ord, Show)-}

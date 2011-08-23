@@ -46,6 +46,7 @@ stylesheet
 , composeSel
 , paddingDecl
 , borderWidthDecl
+, simpleDeclSub
     ) where
 
 import Control.Monad (liftM)
@@ -145,7 +146,7 @@ marginDecl = choice
   where
     singleDecl :: Stream s m Char => String -> ParsecT s u m MarginVal
     singleDecl name = do
-        try (keyword name)
+        try (keywordCase name)
         spaces
         colon
         choice
@@ -154,7 +155,7 @@ marginDecl = choice
           ]
     shortHandDecl :: Stream s m Char => ParsecT s u m [MarginVal]
     shortHandDecl = do
-        try (keyword "margin")
+        try (keywordCase "margin")
         spaces
         colon
         choice
@@ -183,7 +184,7 @@ paddingDecl = choice
   where
     singleDecl :: Stream s m Char => String -> ParsecT s u m PaddingVal
     singleDecl name = do
-        try (keyword name)
+        try (keywordCase name)
         spaces
         colon
         choice
@@ -192,7 +193,7 @@ paddingDecl = choice
           ]
     shortHandDecl :: Stream s m Char => ParsecT s u m [PaddingVal]
     shortHandDecl = do
-        try (keyword "padding")
+        try (keywordCase "padding")
         spaces
         colon
         choice
@@ -224,7 +225,7 @@ borderWidthDecl = choice
   where
     singleDecl :: Stream s m Char => String -> ParsecT s u m BorderWidthVal
     singleDecl name = do
-        try (keyword name)
+        try (keywordCase name)
         spaces
         colon
         choice
@@ -233,7 +234,7 @@ borderWidthDecl = choice
           ]
     shortHandDecl :: Stream s m Char => ParsecT s u m [BorderWidthVal]
     shortHandDecl = do
-        try (keyword "border-width")
+        try (keywordCase "border-width")
         spaces
         colon
         choice
@@ -266,7 +267,7 @@ borderColorDecl = choice
   where
     singleDecl :: Stream s m Char => String -> ParsecT s u m BorderColorVal
     singleDecl name = do
-        try (keyword name)
+        try (keywordCase name)
         spaces
         colon
         choice
@@ -275,7 +276,7 @@ borderColorDecl = choice
           ]
     shortHandDecl :: Stream s m Char => ParsecT s u m [BorderColorVal]
     shortHandDecl = do
-        try (keyword "border-color")
+        try (keywordCase "border-color")
         spaces
         colon
         choice
@@ -306,7 +307,7 @@ borderStyleDecl = choice
   where
     singleDecl :: Stream s m Char => String -> ParsecT s u m BorderStyleVal
     singleDecl name = do
-        try (keyword name)
+        try (keywordCase name)
         spaces
         colon
         choice
@@ -315,7 +316,7 @@ borderStyleDecl = choice
           ]
     shortHandDecl :: Stream s m Char => ParsecT s u m [BorderStyleVal]
     shortHandDecl = do
-        try (keyword "border-style")
+        try (keywordCase "border-style")
         spaces
         colon
         choice
@@ -354,7 +355,7 @@ borderDecl = choice
   where
     singleDecl :: Stream s m Char => String -> ParsecT s u m BorderVal
     singleDecl name = do
-        try (keyword name)
+        try (keywordCase name)
         spaces
         colon
         choice
@@ -363,7 +364,7 @@ borderDecl = choice
           ]
     shortHandDecl :: Stream s m Char => ParsecT s u m BorderVal
     shortHandDecl = do
-        try (keyword "border")
+        try (keywordCase "border")
         spaces
         colon
         choice
@@ -378,6 +379,96 @@ borderVal = oneOrMoreInAnyOrder
     , try borderColor >>= \c -> spaces >> return (BVEColor c)
     ]
 
+
+displayDecl :: Stream s m Char => ParsecT s u m Declaration
+displayDecl = do
+    try (keywordCase "display")
+    spaces
+    colon
+    v <- displayVal
+    spaces
+    i <- important
+    return (DisplayDecl v i)
+
+displayVal :: Stream s m Char => ParsecT s u m DisplayVal
+displayVal = choice
+    [ try (keywordCase "inline") >> return DVInline
+    , try (keywordCase "block") >> return DVBlock
+    , try (keywordCase "list-item") >> return DVListItem
+    , try (keywordCase "inline-block") >> return DVInlineBlock
+    , try (keywordCase "table") >> return DVTable
+    , try (keywordCase "inline-table") >> return DVInlineTable
+    , try (keywordCase "table-row-group") >> return DVTableRowGroup
+    , try (keywordCase "table-header-group") >> return DVTableHeaderGroup
+    , try (keywordCase "table-footer-group") >> return DVTableFooterGroup
+    , try (keywordCase "table-row") >> return DVTableRow
+    , try (keywordCase "table-column-group") >> return DVTableColumnGroup
+    , try (keywordCase "table-column") >> return DVTableColumn
+    , try (keywordCase "table-cell") >> return DVTableCell
+    , try (keywordCase "table-caption") >> return DVTableCaption
+    , try (keywordCase "none") >> return DVNone
+    , try (keywordCase "inherit") >> return DVInherit
+    ]
+
+
+positionDecl :: Stream s m Char => ParsecT s u m Declaration
+positionDecl = do
+    try (keywordCase "position")
+    spaces
+    colon
+    v <- positionVal
+    spaces
+    i <- important
+    return (PositionDecl v i)
+
+positionVal :: Stream s m Char => ParsecT s u m PositionVal
+positionVal = choice
+    [ try (keywordCase "static") >> return PosStatic
+    , try (keywordCase "relative") >> return PosRelative
+    , try (keywordCase "absolute") >> return PosAbsolute
+    , try (keywordCase "fixed") >> return PosFixed
+    , try (keywordCase "inherit") >> return PosInherit
+    ]
+
+boxOffsetDecl :: Stream s m Char => ParsecT s u m Declaration
+boxOffsetDecl = choice
+    [ simpleDeclSub "top" boxOffsetVal TopDecl
+    , simpleDeclSub "right" boxOffsetVal RightDecl
+    , simpleDeclSub "bottom" boxOffsetVal BottomDecl
+    , simpleDeclSub "left" boxOffsetVal LeftDecl
+    ]
+
+simpleDeclSub :: Stream s m Char =>
+                 String -> ParsecT s u m v -> (v -> Important -> Declaration) ->
+                 ParsecT s u m Declaration
+simpleDeclSub name valueParser ctor = do
+    try (keywordCase name)
+    spaces
+    colon
+    v <- valueParser
+    spaces
+    i <- important
+    return (ctor v i)
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+boxOffsetVal :: Stream s m Char => ParsecT s u m BoxOffsetVal
+boxOffsetVal = choice
+    [ try percentage >>= \p -> return (BOVPercentage p)
+    , try lengthVal >>= \l -> return (BOVLength l)
+    , try (keywordCase "auto") >> return BOVAuto
+    , try (keywordCase "inherit") >> return BOVInherit
+    ]
+
+floatDecl :: Stream s m Char => ParsecT s u m Declaration
+floatDecl = simpleDeclSub "float" floatVal FloatDecl
+
+floatVal :: Stream s m Char => ParsecT s u m FloatVal
+floatVal = choice
+    [ try (keywordCase "left") >> return FVLeft
+    , try (keywordCase "right") >> return FVRight
+    , try (keywordCase "none") >> return FVNone
+    , try (keywordCase "inherit") >> return FVInherit
+    ]
 
 atMedia :: Stream s m Char => ParsecT s u m AtMedia
 atMedia = do
@@ -624,6 +715,10 @@ declaration = choice
     , try borderColorDecl >>= \d -> return (DBorderColor d)
     , try borderStyleDecl >>= \d -> return (DBorderStyle d)
     , try borderDecl >>= \d -> return (DBorder d)
+    , try displayDecl
+    , try positionDecl
+    , try boxOffsetDecl
+    , try floatDecl
     ]
 
 {-declaration :: Stream s m Char => ParsecT s u m Declaration

@@ -39,6 +39,10 @@ tests = test
         [RuleSet
           [SimpleSel (TypeSel "p" [])]
           [DBorder (BorderDecl (BVBorder [BVEStyle BSSolid,BVEColor (BCColor (BasicNamedColor Red))]))]]
+    , testParse
+        stylesheet
+        "p {display:inherit !important}" 
+        [RuleSet [SimpleSel (TypeSel "p" [])] [DisplayDecl DVInherit True]]
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "abc" "abc"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "acb" "acb"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "cab" "cab"
