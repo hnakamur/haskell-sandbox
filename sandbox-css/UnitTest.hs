@@ -20,29 +20,29 @@ tests = test
         "h1 {padding-top:10px}" 
         [RuleSet
           [(SimpleSel (TypeSel "h1" []))]
-          [DPadding (PaddingTopDecl (PVWidth (PWLength (Length 10.0 (Just Px)))))]]
+          [DeclPaddingTop (PadWidth (PWLength (Length 10.0 (Just Px)))) False]]
     , testParse
         stylesheet
         "h1 {border-top-color:red}" 
         [RuleSet
           [(SimpleSel (TypeSel "h1" []))]
-          [DBorderColor (BorderTopColorDecl (BCVColor (BCColor (BasicNamedColor Red))))]]
+          [DeclBorderTopColor (BCVColor (BCColor (BasicNamedColor Red))) False]]
     , testParse
         stylesheet
         "h1 {border-top-style:dashed}" 
         [RuleSet
           [(SimpleSel (TypeSel "h1" []))]
-          [DBorderStyle (BorderTopStyleDecl (BSVStyle BSDashed))]]
+          [DeclBorderTopStyle (BSVStyle BSDashed) False]]
     , testParse
         stylesheet
         "p {border: solid red}" 
         [RuleSet
           [SimpleSel (TypeSel "p" [])]
-          [DBorder (BorderDecl (BVBorder [BVEStyle BSSolid,BVEColor (BCColor (BasicNamedColor Red))]))]]
+          [DeclBorder (BVBorder [BVEStyle BSSolid,BVEColor (BCColor (BasicNamedColor Red))]) False]]
     , testParse
         stylesheet
         "p {display:inherit !important}" 
-        [RuleSet [SimpleSel (TypeSel "p" [])] [DisplayDecl DVInherit True]]
+        [RuleSet [SimpleSel (TypeSel "p" [])] [DeclDisplay DVInherit True]]
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "abc" "abc"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "acb" "acb"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "cab" "cab"

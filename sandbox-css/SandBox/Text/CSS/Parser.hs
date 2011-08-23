@@ -40,18 +40,15 @@ stylesheet
 , atImport
 , atPage
 , atMedia
-, marginDecl
 , important
 , hasPseudoElement
 , composeSel
-, paddingDecl
-, borderWidthDecl
-, simpleDeclSub
     ) where
 
 import Control.Monad (liftM)
-import Data.Char (chr)
+import Data.Char (chr, toLower)
 import Data.Functor.Identity (Identity)
+import qualified Data.Map as M (Map, fromList, lookup)
 import Numeric (readHex)
 import Text.Parsec hiding (string, space, spaces)
 import Text.Parsec.Language (emptyDef)
@@ -132,37 +129,98 @@ pageSelector = choice
     , try (keyword ":right") >> return PSRight
     ]
 
-atPageBlock :: Stream s m Char => ParsecT s u m [MarginDecl]
+atPageBlock :: Stream s m Char => ParsecT s u m [Declaration]
 atPageBlock = braces (sepEndBy (marginDecl <?> "margin declaration") semi)
 
-marginDecl :: Stream s m Char => ParsecT s u m MarginDecl
-marginDecl = choice
-    [ singleDecl "margin-top" >>= \v -> return (MarginTopDecl v)
-    , singleDecl "margin-bottom" >>= \v -> return (MarginBottomDecl v)
-    , singleDecl "margin-right" >>= \v -> return (MarginRightDecl v)
-    , singleDecl "margin-left" >>= \v -> return (MarginLeftDecl v)
-    , shortHandDecl >>= \vs -> return (MarginDecl vs)
+marginDecl :: Stream s m Char => ParsecT s u m Declaration
+marginDecl = do
+    n <- try ident <?> "property name"
+    if n `elem` marginPropNames
+        then case (M.lookup (map toLower n) declSubMap) of
+                 Just d -> d
+                 Nothing -> unexpected ("property name: " ++ show n)
+        else fail "only margin properties are allowed in @page block."
+
+marginPropNames :: [String]
+marginPropNames =
+    ["margin-top", "margin-bottom", "margin-right", "margin-left", "margin"]
+
+declaration :: Stream s m Char => ParsecT s u m Declaration
+declaration = do
+    n <- try ident <?> "property name"
+    case (M.lookup (map toLower n) declSubMap) of
+        Just d -> d
+        Nothing -> unexpected ("property name: " ++ show n)
+
+declSub :: Stream s m Char =>
+               ParsecT s u m v -> (v -> Important -> Declaration) ->
+               String -> ParsecT s u m Declaration
+declSub valueParser ctor propName = do
+    spaces
+    colon
+    v <- (valueParser <?> "property value")
+         <|> fail ("invalid value for property " ++ show propName)
+    spaces
+    i <- important
+    return (ctor v i)
+
+declSubMap :: Stream s m Char => M.Map String (ParsecT s u m Declaration)
+declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
+    [ ("border-top-width", declSub individualBorderWidthVal DeclBorderTopWidth)
+    , ("border-bottom-width", declSub individualBorderWidthVal DeclBorderBottomWidth)
+    , ("border-right-width", declSub individualBorderWidthVal DeclBorderRightWidth)
+    , ("border-left-width", declSub individualBorderWidthVal DeclBorderLeftWidth)
+    , ("border-width", declSub shortHandBorderWidthVal DeclBorderWidth)
+    , ("border-top-color", declSub individualBorderColorVal DeclBorderTopColor)
+    , ("border-bottom-color", declSub individualBorderColorVal DeclBorderBottomColor)
+    , ("border-right-color", declSub individualBorderColorVal DeclBorderRightColor)
+    , ("border-left-color", declSub individualBorderColorVal DeclBorderLeftColor)
+    , ("border-color", declSub shortHandBorderColorVal DeclBorderColor)
+    , ("border-top-style", declSub individualBorderStyleVal DeclBorderTopStyle)
+    , ("border-bottom-style", declSub individualBorderStyleVal DeclBorderBottomStyle)
+    , ("border-right-style", declSub individualBorderStyleVal DeclBorderRightStyle)
+    , ("border-left-style", declSub individualBorderStyleVal DeclBorderLeftStyle)
+    , ("border-style", declSub shortHandBorderStyleVal DeclBorderStyle)
+    , ("border-top", declSub borderVal DeclBorderTop)
+    , ("border-bottom", declSub borderVal DeclBorderBottom)
+    , ("border-right", declSub borderVal DeclBorderRight)
+    , ("border-left", declSub borderVal DeclBorderLeft)
+    , ("border", declSub borderVal DeclBorder)
+    , ("margin-top", declSub individualMarginVal DeclMarginTop)
+    , ("margin-bottom", declSub individualMarginVal DeclMarginBottom)
+    , ("margin-right", declSub individualMarginVal DeclMarginRight)
+    , ("margin-left", declSub individualMarginVal DeclMarginLeft)
+    , ("margin", declSub shortHandMarginVal DeclMargin)
+    , ("padding-top", declSub individualPaddingVal DeclPaddingTop)
+    , ("padding-bottom", declSub individualPaddingVal DeclPaddingBottom)
+    , ("padding-right", declSub individualPaddingVal DeclPaddingRight)
+    , ("padding-left", declSub individualPaddingVal DeclPaddingLeft)
+    , ("padding", declSub shortHandPaddingVal DeclPadding)
+    , ("display", declSub displayVal DeclDisplay)
+    , ("position", declSub positionVal DeclPosition)
+    , ("top", declSub boxOffsetVal DeclTop)
+    , ("right", declSub boxOffsetVal DeclRight)
+    , ("bottom", declSub boxOffsetVal DeclBottom)
+    , ("left", declSub boxOffsetVal DeclLeft)
+    , ("float", declSub floatVal DeclFloat)
+    , ("clear", declSub clearVal DeclClear)
+    , ("z-index", declSub zIndexVal DeclZIndex)
+    , ("direction", declSub directionVal DeclDirection)
+    , ("unicode-bidi", declSub unicodeBidiVal DeclUnicodeBidi)
     ]
-  where
-    singleDecl :: Stream s m Char => String -> ParsecT s u m MarginVal
-    singleDecl name = do
-        try (keywordCase name)
-        spaces
-        colon
-        choice
-          [ try marginWidth >>= \w -> return (MVWidth w)
-          , try (keywordCase "inherit") >> return MVInherit
-          ]
-    shortHandDecl :: Stream s m Char => ParsecT s u m [MarginVal]
-    shortHandDecl = do
-        try (keywordCase "margin")
-        spaces
-        colon
-        choice
-          [ try (countRange 1 4 (marginWidth >>= \w -> spaces >>
-                                 return (MVWidth w)))
-          , try (keywordCase "inherit") >> return [MVInherit]
-          ]
+
+
+individualMarginVal :: Stream s m Char => ParsecT s u m MarginVal
+individualMarginVal = choice
+    [ try marginWidth >>= \w -> return (MVWidth w)
+    , try (keywordCase "inherit") >> return MVInherit
+    ]
+
+shortHandMarginVal :: Stream s m Char => ParsecT s u m [MarginVal]
+shortHandMarginVal = choice
+    [ try (countRange 1 4 (marginWidth >>= \w -> spaces >> return (MVWidth w)))
+    , try (keywordCase "inherit") >> return [MVInherit]
+    ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
 marginWidth :: Stream s m Char => ParsecT s u m MarginWidth
@@ -173,34 +231,18 @@ marginWidth = choice
     ]
 
 
-paddingDecl :: Stream s m Char => ParsecT s u m PaddingDecl
-paddingDecl = choice
-    [ singleDecl "padding-top" >>= \v -> return (PaddingTopDecl v)
-    , singleDecl "padding-bottom" >>= \v -> return (PaddingBottomDecl v)
-    , singleDecl "padding-right" >>= \v -> return (PaddingRightDecl v)
-    , singleDecl "padding-left" >>= \v -> return (PaddingLeftDecl v)
-    , shortHandDecl >>= \vs -> return (PaddingDecl vs)
+individualPaddingVal :: Stream s m Char => ParsecT s u m PaddingVal
+individualPaddingVal = choice
+    [ try paddingWidth >>= \w -> return (PadWidth w)
+    , try (keywordCase "inherit") >> return PadInherit
     ]
-  where
-    singleDecl :: Stream s m Char => String -> ParsecT s u m PaddingVal
-    singleDecl name = do
-        try (keywordCase name)
-        spaces
-        colon
-        choice
-          [ try paddingWidth >>= \w -> return (PVWidth w)
-          , try (keywordCase "inherit") >> return PVInherit
-          ]
-    shortHandDecl :: Stream s m Char => ParsecT s u m [PaddingVal]
-    shortHandDecl = do
-        try (keywordCase "padding")
-        spaces
-        colon
-        choice
-          [ try (countRange 1 4 (paddingWidth >>= \w -> spaces >>
-                                 return (PVWidth w)))
-          , try (keywordCase "inherit") >> return [PVInherit]
-          ]
+
+shortHandPaddingVal :: Stream s m Char => ParsecT s u m [PaddingVal]
+shortHandPaddingVal = choice
+    [ try (countRange 1 4 (paddingWidth >>= \w -> spaces >>
+                           return (PadWidth w)))
+    , try (keywordCase "inherit") >> return [PadInherit]
+    ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
 paddingWidth :: Stream s m Char => ParsecT s u m PaddingWidth
@@ -210,38 +252,19 @@ paddingWidth = choice
     ]
 
 
-borderWidthDecl :: Stream s m Char => ParsecT s u m BorderWidthDecl
-borderWidthDecl = choice
-    [ singleDecl "border-top-width" >>= \v ->
-        return (BorderTopWidthDecl v)
-    , singleDecl "border-bottom-width" >>= \v ->
-        return (BorderBottomWidthDecl v)
-    , singleDecl "border-right-width" >>= \v ->
-        return (BorderRightWidthDecl v)
-    , singleDecl "border-left-width" >>= \v ->
-        return (BorderLeftWidthDecl v)
-    , shortHandDecl >>= \vs -> return (BorderWidthDecl vs)
+
+individualBorderWidthVal :: Stream s m Char => ParsecT s u m BorderWidthVal
+individualBorderWidthVal = choice
+    [ try borderWidth >>= \w -> return (BWVWidth w)
+    , try (keywordCase "inherit") >> return BWVInherit
     ]
-  where
-    singleDecl :: Stream s m Char => String -> ParsecT s u m BorderWidthVal
-    singleDecl name = do
-        try (keywordCase name)
-        spaces
-        colon
-        choice
-          [ try borderWidth >>= \w -> return (BWVWidth w)
-          , try (keywordCase "inherit") >> return BWVInherit
-          ]
-    shortHandDecl :: Stream s m Char => ParsecT s u m [BorderWidthVal]
-    shortHandDecl = do
-        try (keywordCase "border-width")
-        spaces
-        colon
-        choice
-          [ try (countRange 1 4 (borderWidth >>= \w -> spaces >>
-                                 return (BWVWidth w)))
-          , try (keywordCase "inherit") >> return [BWVInherit]
-          ]
+
+shortHandBorderWidthVal :: Stream s m Char => ParsecT s u m [BorderWidthVal]
+shortHandBorderWidthVal = choice
+    [ try (countRange 1 4 (borderWidth >>= \w -> spaces >>
+                           return (BWVWidth w)))
+    , try (keywordCase "inherit") >> return [BWVInherit]
+    ]
 
 borderWidth :: Stream s m Char => ParsecT s u m BorderWidth
 borderWidth = choice
@@ -252,38 +275,18 @@ borderWidth = choice
     ]
 
 
-borderColorDecl :: Stream s m Char => ParsecT s u m BorderColorDecl
-borderColorDecl = choice
-    [ singleDecl "border-top-color" >>= \v ->
-        return (BorderTopColorDecl v)
-    , singleDecl "border-bottom-color" >>= \v ->
-        return (BorderBottomColorDecl v)
-    , singleDecl "border-right-color" >>= \v ->
-        return (BorderRightColorDecl v)
-    , singleDecl "border-left-color" >>= \v ->
-        return (BorderLeftColorDecl v)
-    , shortHandDecl >>= \vs -> return (BorderColorDecl vs)
+individualBorderColorVal :: Stream s m Char => ParsecT s u m BorderColorVal
+individualBorderColorVal = choice
+    [ try borderColor >>= \w -> return (BCVColor w)
+    , try (keywordCase "inherit") >> return BCVInherit
     ]
-  where
-    singleDecl :: Stream s m Char => String -> ParsecT s u m BorderColorVal
-    singleDecl name = do
-        try (keywordCase name)
-        spaces
-        colon
-        choice
-          [ try borderColor >>= \c -> return (BCVColor c)
-          , try (keywordCase "inherit") >> return BCVInherit
-          ]
-    shortHandDecl :: Stream s m Char => ParsecT s u m [BorderColorVal]
-    shortHandDecl = do
-        try (keywordCase "border-color")
-        spaces
-        colon
-        choice
-          [ try (countRange 1 4 (borderColor >>= \c -> spaces >>
-                                 return (BCVColor c)))
-          , try (keywordCase "inherit") >> return [BCVInherit]
-          ]
+
+shortHandBorderColorVal :: Stream s m Char => ParsecT s u m [BorderColorVal]
+shortHandBorderColorVal = choice
+    [ try (countRange 1 4 (borderColor >>= \w -> spaces >>
+                           return (BCVColor w)))
+    , try (keywordCase "inherit") >> return [BCVInherit]
+    ]
 
 borderColor :: Stream s m Char => ParsecT s u m BorderColor
 borderColor = choice
@@ -292,38 +295,18 @@ borderColor = choice
     ]
 
 
-borderStyleDecl :: Stream s m Char => ParsecT s u m BorderStyleDecl
-borderStyleDecl = choice
-    [ singleDecl "border-top-style" >>= \v ->
-        return (BorderTopStyleDecl v)
-    , singleDecl "border-bottom-style" >>= \v ->
-        return (BorderBottomStyleDecl v)
-    , singleDecl "border-right-style" >>= \v ->
-        return (BorderRightStyleDecl v)
-    , singleDecl "border-left-style" >>= \v ->
-        return (BorderLeftStyleDecl v)
-    , shortHandDecl >>= \vs -> return (BorderStyleDecl vs)
+individualBorderStyleVal :: Stream s m Char => ParsecT s u m BorderStyleVal
+individualBorderStyleVal = choice
+    [ try borderStyle >>= \w -> return (BSVStyle w)
+    , try (keywordCase "inherit") >> return BSVInherit
     ]
-  where
-    singleDecl :: Stream s m Char => String -> ParsecT s u m BorderStyleVal
-    singleDecl name = do
-        try (keywordCase name)
-        spaces
-        colon
-        choice
-          [ try borderStyle >>= \s -> return (BSVStyle s)
-          , try (keywordCase "inherit") >> return BSVInherit
-          ]
-    shortHandDecl :: Stream s m Char => ParsecT s u m [BorderStyleVal]
-    shortHandDecl = do
-        try (keywordCase "border-style")
-        spaces
-        colon
-        choice
-          [ try (countRange 1 4 (borderStyle >>= \s -> spaces >>
-                                 return (BSVStyle s)))
-          , try (keywordCase "inherit") >> return [BSVInherit]
-          ]
+
+shortHandBorderStyleVal :: Stream s m Char => ParsecT s u m [BorderStyleVal]
+shortHandBorderStyleVal = choice
+    [ try (countRange 1 4 (borderStyle >>= \w -> spaces >>
+                           return (BSVStyle w)))
+    , try (keywordCase "inherit") >> return [BSVInherit]
+    ]
 
 borderStyle :: Stream s m Char => ParsecT s u m BorderStyle
 borderStyle = choice
@@ -340,55 +323,18 @@ borderStyle = choice
     ]
 
 
-borderDecl :: Stream s m Char => ParsecT s u m BorderDecl
-borderDecl = choice
-    [ singleDecl "border-top" >>= \v ->
-        return (BorderTopDecl v)
-    , singleDecl "border-bottom" >>= \v ->
-        return (BorderBottomDecl v)
-    , singleDecl "border-right" >>= \v ->
-        return (BorderRightDecl v)
-    , singleDecl "border-left" >>= \v ->
-        return (BorderLeftDecl v)
-    , shortHandDecl >>= \vs -> return (BorderDecl vs)
+borderVal :: Stream s m Char => ParsecT s u m BorderVal
+borderVal = choice
+    [ try borderValElems >>= \vs -> return (BVBorder vs)
+    , try (keywordCase "inherit") >> return BVInherit
     ]
-  where
-    singleDecl :: Stream s m Char => String -> ParsecT s u m BorderVal
-    singleDecl name = do
-        try (keywordCase name)
-        spaces
-        colon
-        choice
-          [ try borderVal >>= \vs -> return (BVBorder vs)
-          , try (keywordCase "inherit") >> return BVInherit
-          ]
-    shortHandDecl :: Stream s m Char => ParsecT s u m BorderVal
-    shortHandDecl = do
-        try (keywordCase "border")
-        spaces
-        colon
-        choice
-          [ try borderVal >>= \vs -> return (BVBorder vs)
-          , try (keywordCase "inherit") >> return BVInherit
-          ]
 
-borderVal :: Stream s m Char => ParsecT s u m [BorderValElem]
-borderVal = oneOrMoreInAnyOrder
+borderValElems :: Stream s m Char => ParsecT s u m [BorderValElem]
+borderValElems = oneOrMoreInAnyOrder
     [ try borderWidth >>= \w -> spaces >> return (BVEWidth w)
     , try borderStyle >>= \s -> spaces >> return (BVEStyle s)
     , try borderColor >>= \c -> spaces >> return (BVEColor c)
     ]
-
-
-displayDecl :: Stream s m Char => ParsecT s u m Declaration
-displayDecl = do
-    try (keywordCase "display")
-    spaces
-    colon
-    v <- displayVal
-    spaces
-    i <- important
-    return (DisplayDecl v i)
 
 displayVal :: Stream s m Char => ParsecT s u m DisplayVal
 displayVal = choice
@@ -411,16 +357,6 @@ displayVal = choice
     ]
 
 
-positionDecl :: Stream s m Char => ParsecT s u m Declaration
-positionDecl = do
-    try (keywordCase "position")
-    spaces
-    colon
-    v <- positionVal
-    spaces
-    i <- important
-    return (PositionDecl v i)
-
 positionVal :: Stream s m Char => ParsecT s u m PositionVal
 positionVal = choice
     [ try (keywordCase "static") >> return PosStatic
@@ -429,26 +365,6 @@ positionVal = choice
     , try (keywordCase "fixed") >> return PosFixed
     , try (keywordCase "inherit") >> return PosInherit
     ]
-
-boxOffsetDecl :: Stream s m Char => ParsecT s u m Declaration
-boxOffsetDecl = choice
-    [ simpleDeclSub "top" boxOffsetVal TopDecl
-    , simpleDeclSub "right" boxOffsetVal RightDecl
-    , simpleDeclSub "bottom" boxOffsetVal BottomDecl
-    , simpleDeclSub "left" boxOffsetVal LeftDecl
-    ]
-
-simpleDeclSub :: Stream s m Char =>
-                 String -> ParsecT s u m v -> (v -> Important -> Declaration) ->
-                 ParsecT s u m Declaration
-simpleDeclSub name valueParser ctor = do
-    try (keywordCase name)
-    spaces
-    colon
-    v <- valueParser
-    spaces
-    i <- important
-    return (ctor v i)
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
 boxOffsetVal :: Stream s m Char => ParsecT s u m BoxOffsetVal
@@ -459,15 +375,43 @@ boxOffsetVal = choice
     , try (keywordCase "inherit") >> return BOVInherit
     ]
 
-floatDecl :: Stream s m Char => ParsecT s u m Declaration
-floatDecl = simpleDeclSub "float" floatVal FloatDecl
-
 floatVal :: Stream s m Char => ParsecT s u m FloatVal
 floatVal = choice
     [ try (keywordCase "left") >> return FVLeft
     , try (keywordCase "right") >> return FVRight
     , try (keywordCase "none") >> return FVNone
     , try (keywordCase "inherit") >> return FVInherit
+    ]
+
+clearVal :: Stream s m Char => ParsecT s u m ClearVal
+clearVal = choice
+    [ try (keywordCase "none") >> return CleNone
+    , try (keywordCase "left") >> return CleLeft
+    , try (keywordCase "right") >> return CleRight
+    , try (keywordCase "both") >> return CleBoth
+    , try (keywordCase "inherit") >> return CleInherit
+    ]
+
+zIndexVal :: Stream s m Char => ParsecT s u m ZIndexVal
+zIndexVal = choice
+    [ try (keywordCase "auto") >> return ZIndAuto
+    , try int >>= \n -> return (ZIndInt n)
+    , try (keywordCase "inherit") >> return ZIndInherit
+    ]
+
+directionVal :: Stream s m Char => ParsecT s u m DirectionVal
+directionVal = choice
+    [ try (keywordCase "ltr") >> return DirLtr
+    , try (keywordCase "rtl") >> return DirRtl
+    , try (keywordCase "inherit") >> return DirInherit
+    ]
+
+unicodeBidiVal :: Stream s m Char => ParsecT s u m UnicodeBidiVal
+unicodeBidiVal = choice
+    [ try (keywordCase "normal") >> return UBdNormal
+    , try (keywordCase "embed") >> return UBdEmbed
+    , try (keywordCase "bidi-override") >> return UBdBidiOverride
+    , try (keywordCase "inherit") >> return UBdInherit
     ]
 
 atMedia :: Stream s m Char => ParsecT s u m AtMedia
@@ -707,27 +651,6 @@ basicNamedColor = do
 asciiAlpha :: Stream s m Char => ParsecT s u m Char
 asciiAlpha = satisfy isAsciiAlpha
 
-declaration :: Stream s m Char => ParsecT s u m Declaration
-declaration = choice
-    [ try marginDecl >>= \d -> return (DMargin d)
-    , try paddingDecl >>= \d -> return (DPadding d)
-    , try borderWidthDecl >>= \d -> return (DBorderWidth d)
-    , try borderColorDecl >>= \d -> return (DBorderColor d)
-    , try borderStyleDecl >>= \d -> return (DBorderStyle d)
-    , try borderDecl >>= \d -> return (DBorder d)
-    , try displayDecl
-    , try positionDecl
-    , try boxOffsetDecl
-    , try floatDecl
-    ]
-
-{-declaration :: Stream s m Char => ParsecT s u m Declaration
-declaration = do
-    n <- identifier
-    colon
-    v <- value
-    return (Declaration n v)-}
-
 value :: Stream s m Char => ParsecT s u m Value
 value = do
     xs <- many1 valueElem
@@ -851,6 +774,12 @@ percentage = do
     char '%'
     return (Percentage (read n :: Double))
 
+int :: Stream s m Char => ParsecT s u m Int
+int = do
+    s <- option "" (S.string "-")
+    ds <- many1 digit
+    return (read (s ++ ds))
+
 important :: Stream s m Char => ParsecT s u m Important
 important = option False (symbol "!" >> keyword "important" >> return True)
 
@@ -963,10 +892,7 @@ num = try (
           ; return (int ++ dot:frac)
           }
       )
-      <|> int
-
-int :: Stream s m Char => ParsecT s u m String
-int = many1 digit
+      <|> many1 digit
 
 spaces1 :: Stream s m Char => ParsecT s u m String
 spaces1 = many1 space
