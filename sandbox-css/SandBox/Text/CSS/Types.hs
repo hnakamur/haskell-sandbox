@@ -58,6 +58,18 @@ module SandBox.Text.CSS.Types
   , ZIndexVal(..)
   , DirectionVal(..)
   , UnicodeBidiVal(..)
+  , WidthVal(..)
+  , MinWidthVal(..)
+  , MaxWidthVal(..)
+  , HeightVal(..)
+  , MinHeightVal(..)
+  , MaxHeightVal(..)
+  , LineHeightVal(..)
+  , VerticalAlignVal(..)
+  , OverflowVal(..)
+  , ClipVal(..)
+  , ClipOffset(..)
+  , VisibilityVal(..)
   , Important
   {-, tdIdent
   , tdString
@@ -412,6 +424,95 @@ data UnicodeBidiVal
     | UBdInherit
     deriving (Eq, Ord, Show)
 
+
+data WidthVal
+    = WidLength Length
+    | WidPercentage Percentage
+    | WidAuto
+    | WidInherit
+    deriving (Eq, Ord, Show)
+
+data MinWidthVal
+    = MinWidLength Length
+    | MinWidPercentage Percentage
+    | MinWidInherit
+    deriving (Eq, Ord, Show)
+
+data MaxWidthVal
+    = MaxWidLength Length
+    | MaxWidPercentage Percentage
+    | MaxWidNone
+    | MaxWidInherit
+    deriving (Eq, Ord, Show)
+
+data HeightVal
+    = HeiLength Length
+    | HeiPercentage Percentage
+    | HeiAuto
+    | HeiInherit
+    deriving (Eq, Ord, Show)
+
+data MinHeightVal
+    = MinHeiLength Length
+    | MinHeiPercentage Percentage
+    | MinHeiInherit
+    deriving (Eq, Ord, Show)
+
+data MaxHeightVal
+    = MaxHeiLength Length
+    | MaxHeiPercentage Percentage
+    | MaxHeiNone
+    | MaxHeiInherit
+    deriving (Eq, Ord, Show)
+
+data LineHeightVal
+    = LinHeiNormal
+    | LinHeiNumber Double
+    | LinHeiLength Length
+    | LinHeiPercentage Percentage
+    | LinHeiInherit
+    deriving (Eq, Ord, Show)
+
+data VerticalAlignVal
+    = VAliBaseline
+    | VAliSub
+    | VAliSuper
+    | VAliTop
+    | VAliTextTop
+    | VAliMiddle
+    | VAliBottom
+    | VAliTextBottom
+    | VAliLength Length
+    | VAliPercentage Percentage
+    | VAliInherit
+    deriving (Eq, Ord, Show)
+
+data OverflowVal
+    = OveVisible
+    | OveHidden
+    | OveScroll
+    | OveAuto
+    | OveInherit
+    deriving (Eq, Ord, Show)
+
+data ClipVal
+    = CliShape ClipOffset ClipOffset ClipOffset ClipOffset
+    | CliAuto
+    | CliInherit
+    deriving (Eq, Ord, Show)
+
+data ClipOffset
+    = CliOffLength Length
+    | CliOffAuto
+    deriving (Eq, Ord, Show)
+
+data VisibilityVal
+    = VisVisible
+    | VisHidden
+    | VisCollapse
+    | VisInherit
+    deriving (Eq, Ord, Show)
+
 data AtMedia = AtMedia [MediaType] [Statement]
              deriving (Eq, Ord, Show)
 
@@ -480,6 +581,17 @@ data Declaration
     | DeclZIndex ZIndexVal Important
     | DeclDirection DirectionVal Important
     | DeclUnicodeBidi UnicodeBidiVal Important
+    | DeclWidth WidthVal Important
+    | DeclMinWidth MinWidthVal Important
+    | DeclMaxWidth MaxWidthVal Important
+    | DeclHeight HeightVal Important
+    | DeclMinHeight MinHeightVal Important
+    | DeclMaxHeight MaxHeightVal Important
+    | DeclLineHeight LineHeightVal Important
+    | DeclVerticalAlign VerticalAlignVal Important
+    | DeclOverflow OverflowVal Important
+    | DeclClip ClipVal Important
+    | DeclVisibility VisibilityVal Important
     deriving (Eq, Ord, Show)
 
 {-data Declaration = Declaration String Value

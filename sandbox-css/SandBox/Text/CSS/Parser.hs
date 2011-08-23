@@ -207,6 +207,17 @@ declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
     , ("z-index", declSub zIndexVal DeclZIndex)
     , ("direction", declSub directionVal DeclDirection)
     , ("unicode-bidi", declSub unicodeBidiVal DeclUnicodeBidi)
+    , ("width", declSub widthVal DeclWidth)
+    , ("min-width", declSub minWidthVal DeclMinWidth)
+    , ("max-width", declSub maxWidthVal DeclMaxWidth)
+    , ("height", declSub heightVal DeclHeight)
+    , ("min-height", declSub minHeightVal DeclMinHeight)
+    , ("max-height", declSub maxHeightVal DeclMaxHeight)
+    , ("line-height", declSub lineHeightVal DeclLineHeight)
+    , ("vertical-align", declSub verticalAlignVal DeclVerticalAlign)
+    , ("overflow", declSub overflowVal DeclOverflow)
+    , ("clip", declSub clipVal DeclClip)
+    , ("visibility", declSub visibilityVal DeclVisibility)
     ]
 
 
@@ -412,6 +423,130 @@ unicodeBidiVal = choice
     , try (keywordCase "embed") >> return UBdEmbed
     , try (keywordCase "bidi-override") >> return UBdBidiOverride
     , try (keywordCase "inherit") >> return UBdInherit
+    ]
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+widthVal :: Stream s m Char => ParsecT s u m WidthVal
+widthVal = choice
+    [ try percentage >>= \p -> return (WidPercentage p)
+    , try lengthVal >>= \l -> return (WidLength l)
+    , try (keywordCase "auto") >> return WidAuto
+    , try (keywordCase "inherit") >> return WidInherit
+    ]
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+minWidthVal :: Stream s m Char => ParsecT s u m MinWidthVal
+minWidthVal = choice
+    [ try percentage >>= \p -> return (MinWidPercentage p)
+    , try lengthVal >>= \l -> return (MinWidLength l)
+    , try (keywordCase "inherit") >> return MinWidInherit
+    ]
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+maxWidthVal :: Stream s m Char => ParsecT s u m MaxWidthVal
+maxWidthVal = choice
+    [ try percentage >>= \p -> return (MaxWidPercentage p)
+    , try lengthVal >>= \l -> return (MaxWidLength l)
+    , try (keywordCase "none") >> return MaxWidNone
+    , try (keywordCase "inherit") >> return MaxWidInherit
+    ]
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+heightVal :: Stream s m Char => ParsecT s u m HeightVal
+heightVal = choice
+    [ try percentage >>= \p -> return (HeiPercentage p)
+    , try lengthVal >>= \l -> return (HeiLength l)
+    , try (keywordCase "auto") >> return HeiAuto
+    , try (keywordCase "inherit") >> return HeiInherit
+    ]
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+minHeightVal :: Stream s m Char => ParsecT s u m MinHeightVal
+minHeightVal = choice
+    [ try percentage >>= \p -> return (MinHeiPercentage p)
+    , try lengthVal >>= \l -> return (MinHeiLength l)
+    , try (keywordCase "inherit") >> return MinHeiInherit
+    ]
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+maxHeightVal :: Stream s m Char => ParsecT s u m MaxHeightVal
+maxHeightVal = choice
+    [ try percentage >>= \p -> return (MaxHeiPercentage p)
+    , try lengthVal >>= \l -> return (MaxHeiLength l)
+    , try (keywordCase "none") >> return MaxHeiNone
+    , try (keywordCase "inherit") >> return MaxHeiInherit
+    ]
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+lineHeightVal :: Stream s m Char => ParsecT s u m LineHeightVal
+lineHeightVal = choice
+    [ try (keywordCase "normal") >> return LinHeiNormal
+    , try nonNegativeNumber >>= \n -> return (LinHeiNumber n)
+    , try percentage >>= \p -> return (LinHeiPercentage p)
+    , try lengthVal >>= \l -> return (LinHeiLength l)
+    , try (keywordCase "inherit") >> return LinHeiInherit
+    ]
+
+nonNegativeNumber :: Stream s m Char => ParsecT s u m Double
+nonNegativeNumber = num >>= \s -> return (read s)
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+verticalAlignVal :: Stream s m Char => ParsecT s u m VerticalAlignVal
+verticalAlignVal = choice
+    [ try (keywordCase "baseline") >> return VAliBaseline
+    , try (keywordCase "sub") >> return VAliSub
+    , try (keywordCase "super") >> return VAliSuper
+    , try (keywordCase "top") >> return VAliTop
+    , try (keywordCase "text-top") >> return VAliTextTop
+    , try (keywordCase "middle") >> return VAliMiddle
+    , try (keywordCase "bottom") >> return VAliBottom
+    , try (keywordCase "text-bottom") >> return VAliTextBottom
+    , try percentage >>= \p -> return (VAliPercentage p)
+    , try lengthVal >>= \l -> return (VAliLength l)
+    , try (keywordCase "inherit") >> return VAliInherit
+    ]
+
+overflowVal :: Stream s m Char => ParsecT s u m OverflowVal
+overflowVal = choice
+    [ try (keywordCase "visible") >> return OveVisible
+    , try (keywordCase "hidden") >> return OveHidden
+    , try (keywordCase "scroll") >> return OveScroll
+    , try (keywordCase "auto") >> return OveAuto
+    , try (keywordCase "inherit") >> return OveInherit
+    ]
+
+clipVal :: Stream s m Char => ParsecT s u m ClipVal
+clipVal = choice
+    [ try clipShape
+    , try (keywordCase "auto") >> return CliAuto
+    , try (keywordCase "inherit") >> return CliInherit
+    ]
+
+clipShape :: Stream s m Char => ParsecT s u m ClipVal
+clipShape = do
+    symbol "rect("
+    top <- clipOffset
+    comma
+    right <- clipOffset
+    comma
+    bottom <- clipOffset
+    comma
+    left <- clipOffset
+    symbol ")"
+    return (CliShape top right bottom left)
+
+clipOffset :: Stream s m Char => ParsecT s u m ClipOffset
+clipOffset = choice
+    [ try lengthVal >>= \l -> return (CliOffLength l)
+    , try (keywordCase "auto") >> return CliOffAuto
+    ]
+
+visibilityVal :: Stream s m Char => ParsecT s u m VisibilityVal
+visibilityVal = choice
+    [ try (keywordCase "visible") >> return VisVisible
+    , try (keywordCase "hidden") >> return VisHidden
+    , try (keywordCase "collapse") >> return VisCollapse
+    , try (keywordCase "inherit") >> return VisInherit
     ]
 
 atMedia :: Stream s m Char => ParsecT s u m AtMedia
