@@ -43,6 +43,22 @@ tests = test
         stylesheet
         "p {display:inherit !important}" 
         [RuleSet [SimpleSel (TypeSel "p" [])] [DeclDisplay DVInherit True]]
+    , testParse
+        stylesheet
+        "h1:before{content:counter(c1)}" 
+        [RuleSet [SimpleSel (TypeSel "h1" [SSPseudoElementSel PESBefore])] [DeclContent (ConValues [CVECounter (Counter "c1" Nothing)]) False]]
+    , testParse
+        stylesheet
+        "q:lang(en) { quotes: '\"' '\"' \"'\" \"'\" }" 
+        [RuleSet [SimpleSel (TypeSel "q" [SSPseudoClassSel (PCSLang "en")])] [DeclQuotes (QVQuotePairs [("\"","\""),("'","'")]) False]]
+    , testParse
+        stylesheet
+        "h1:before{counter-increment: chapter 2}"
+        [RuleSet [SimpleSel (TypeSel "h1" [SSPseudoElementSel PESBefore])] [DeclCounterIncrement (CIVCounters [("chapter",Just 2)]) False]]
+    , testParse
+        stylesheet
+        "ul { list-style: upper-roman inside }"
+        [RuleSet [SimpleSel (TypeSel "ul" [])] [DeclListStyle (LSVValues [LSVEType LSTUpperRoman,LSVEPosition LSPInside]) False]]
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "abc" "abc"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "acb" "acb"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "cab" "cab"

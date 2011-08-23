@@ -3,6 +3,7 @@ module SandBox.Text.CSS.Types
   , AtCharset(..)
   , AtImport(..)
   , AtMedia(..)
+  , Id
   , TokenData(..)
   , StyleSheet(..)
   , Statement(..)
@@ -70,6 +71,21 @@ module SandBox.Text.CSS.Types
   , ClipVal(..)
   , ClipOffset(..)
   , VisibilityVal(..)
+  , ContentVal(..)
+  , ContentValElem(..)
+  , Counter(..)
+  , ListStyleTypeVal(..)
+  , ListStyleType(..)
+  , ListStyleImageVal(..)
+  , ListStyleImage(..)
+  , ListStylePositionVal(..)
+  , ListStylePosition(..)
+  , ListStyleVal(..)
+  , ListStyleValElem(..)
+  , QuotesVal(..)
+  , QuotePair
+  , CounterResetVal(..)
+  , CounterIncrementVal(..)
   , Important
   {-, tdIdent
   , tdString
@@ -513,6 +529,103 @@ data VisibilityVal
     | VisInherit
     deriving (Eq, Ord, Show)
 
+data ContentVal
+    = ConNormal
+    | ConNone
+    | ConValues [ContentValElem]
+    | ConInherit
+    deriving (Eq, Ord, Show)
+
+data ContentValElem
+    = CVEString String
+    | CVEURI URI
+    | CVECounter Counter
+    | CVEAttr Id
+    | CVEOpenQuote
+    | CVECloseQuote
+    | CVENoOpenQuote
+    | CVENoCloseQuote
+    deriving (Eq, Ord, Show)
+
+data Counter
+    = Counter Id (Maybe ListStyleType)
+    | Counters Id String (Maybe ListStyleType)
+    deriving (Eq, Ord, Show)
+
+data ListStyleTypeVal
+    = LSTVType ListStyleType
+    | LSTVInherit
+    deriving (Eq, Ord, Show)
+
+data ListStyleType
+    = LSTDisc
+    | LSTCircle
+    | LSTSquare
+    | LSTDecimal
+    | LSTDecimalLeadingZero
+    | LSTLowerRoman
+    | LSTUpperRoman
+    | LSTLowerGreek
+    | LSTLowerLatin
+    | LSTUpperLatin
+    | LSTArmenian
+    | LSTGeorgian
+    | LSTLowerAlpha
+    | LSTUpperAlpha
+    | LSTNone
+    deriving (Eq, Ord, Show)
+
+data ListStyleImageVal
+    = LSIVImage ListStyleImage
+    | LSIVInherit
+    deriving (Eq, Ord, Show)
+
+data ListStyleImage
+    = LSIURI URI
+    | LSINone
+    deriving (Eq, Ord, Show)
+
+data ListStylePositionVal
+    = LSPVPosition ListStylePosition
+    | LSPVInherit
+    deriving (Eq, Ord, Show)
+
+data ListStylePosition
+    = LSPInside
+    | LSPOutside
+    deriving (Eq, Ord, Show)
+
+data ListStyleVal
+    = LSVValues [ListStyleValElem]
+    | LSVInherit
+    deriving (Eq, Ord, Show)
+
+data ListStyleValElem
+    = LSVEType ListStyleType
+    | LSVEPosition ListStylePosition
+    | LSVEImage ListStyleImage
+    deriving (Eq, Ord, Show)
+
+data QuotesVal
+    = QVQuotePairs [QuotePair]
+    | QVNone
+    | QVInherit
+    deriving (Eq, Ord, Show)
+
+type QuotePair = (String, String)
+
+data CounterResetVal
+    = CRVCounters [(Id, (Maybe Int))]
+    | CRVNone
+    | CRVInherit
+    deriving (Eq, Ord, Show)
+
+data CounterIncrementVal
+    = CIVCounters [(Id, (Maybe Int))]
+    | CIVNone
+    | CIVInherit
+    deriving (Eq, Ord, Show)
+
 data AtMedia = AtMedia [MediaType] [Statement]
              deriving (Eq, Ord, Show)
 
@@ -592,6 +705,14 @@ data Declaration
     | DeclOverflow OverflowVal Important
     | DeclClip ClipVal Important
     | DeclVisibility VisibilityVal Important
+    | DeclContent ContentVal Important
+    | DeclQuotes QuotesVal Important
+    | DeclCounterReset CounterResetVal Important
+    | DeclCounterIncrement CounterIncrementVal Important
+    | DeclListStyleType ListStyleTypeVal Important
+    | DeclListStyleImage ListStyleImageVal Important
+    | DeclListStylePosition ListStylePositionVal Important
+    | DeclListStyle ListStyleVal Important
     deriving (Eq, Ord, Show)
 
 {-data Declaration = Declaration String Value

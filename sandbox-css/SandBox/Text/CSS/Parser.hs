@@ -14,7 +14,6 @@ stylesheet
 , ident
 , name
 , num
-, int
 , badstring
 , string
 , unicode
@@ -218,6 +217,14 @@ declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
     , ("overflow", declSub overflowVal DeclOverflow)
     , ("clip", declSub clipVal DeclClip)
     , ("visibility", declSub visibilityVal DeclVisibility)
+    , ("content", declSub contentVal DeclContent)
+    , ("quotes", declSub quotesVal DeclQuotes)
+    , ("counter-reset", declSub counterResetVal DeclCounterReset)
+    , ("counter-increment", declSub counterIncrementVal DeclCounterIncrement)
+    , ("list-style-type", declSub listStyleTypeVal DeclListStyleType)
+    , ("list-style-image", declSub listStyleImageVal DeclListStyleImage)
+    , ("list-style-position", declSub listStylePositionVal DeclListStylePosition)
+    , ("list-style", declSub listStyleVal DeclListStyle)
     ]
 
 
@@ -406,7 +413,7 @@ clearVal = choice
 zIndexVal :: Stream s m Char => ParsecT s u m ZIndexVal
 zIndexVal = choice
     [ try (keywordCase "auto") >> return ZIndAuto
-    , try int >>= \n -> return (ZIndInt n)
+    , try integer >>= \n -> return (ZIndInt n)
     , try (keywordCase "inherit") >> return ZIndInherit
     ]
 
@@ -548,6 +555,149 @@ visibilityVal = choice
     , try (keywordCase "collapse") >> return VisCollapse
     , try (keywordCase "inherit") >> return VisInherit
     ]
+
+contentVal :: Stream s m Char => ParsecT s u m ContentVal
+contentVal = choice
+    [ try (keywordCase "normal") >> return ConNormal
+    , try (keywordCase "none") >> return ConNone
+    , try contentValElems >>= \vs -> return (ConValues vs)
+    , try (keywordCase "inherit") >> return ConInherit
+    ]
+
+contentValElems :: Stream s m Char => ParsecT s u m [ContentValElem]
+contentValElems = many1 (spaces >> contentValElem)
+
+contentValElem :: Stream s m Char => ParsecT s u m ContentValElem
+contentValElem = choice
+    [ try stringLit >>= \s -> return (CVEString s)
+    , try uri >>= \u -> return (CVEURI u)
+    , try counter >>= \c -> return (CVECounter c)
+    , try contentValAttr
+    , try (keywordCase "open-quote") >> return CVEOpenQuote
+    , try (keywordCase "close-quote") >> return CVECloseQuote
+    , try (keywordCase "no-open-quote") >> return CVENoOpenQuote
+    , try (keywordCase "no-close-quote") >> return CVENoCloseQuote
+    ]
+
+contentValAttr :: Stream s m Char => ParsecT s u m ContentValElem
+contentValAttr = do
+    id <- between (symbol "attr(") (symbol ")") identifier
+    return (CVEAttr id)
+
+counter :: Stream s m Char => ParsecT s u m Counter
+counter = choice
+    [ try (between (symbol "counter(") (symbol ")")
+              (identifier >>= \id ->
+               optionMaybe (comma >> listStyleType) >>= \t ->
+               return (Counter id t)))
+    , try (between (symbol "counters(") (symbol ")")
+              (identifier >>= \id ->
+               stringLit >>= \s ->
+               optionMaybe (comma >> listStyleType) >>= \t ->
+               return (Counters id s t)))
+    ]
+
+listStyleTypeVal :: Stream s m Char => ParsecT s u m ListStyleTypeVal
+listStyleTypeVal = choice
+    [ try listStyleType >>= \t -> return (LSTVType t)
+    , try (keywordCase "inherit") >> return LSTVInherit
+    ]
+
+listStyleType :: Stream s m Char => ParsecT s u m ListStyleType
+listStyleType = choice
+    [ try (keywordCase "disc") >> return LSTDisc
+    , try (keywordCase "circle") >> return LSTCircle
+    , try (keywordCase "square") >> return LSTSquare
+    , try (keywordCase "decimal") >> return LSTDecimal
+    , try (keywordCase "decimal-leading-zero") >> return LSTDecimalLeadingZero
+    , try (keywordCase "lower-roman") >> return LSTLowerRoman
+    , try (keywordCase "upper-roman") >> return LSTUpperRoman
+    , try (keywordCase "lower-greek") >> return LSTLowerGreek
+    , try (keywordCase "lower-latin") >> return LSTLowerLatin
+    , try (keywordCase "armenian") >> return LSTArmenian
+    , try (keywordCase "georgian") >> return LSTGeorgian
+    , try (keywordCase "lower-alpha") >> return LSTLowerAlpha
+    , try (keywordCase "upper-alpha") >> return LSTUpperAlpha
+    , try (keywordCase "none") >> return LSTNone
+    ]
+
+listStyleImageVal :: Stream s m Char => ParsecT s u m ListStyleImageVal
+listStyleImageVal = choice
+    [ try listStyleImage >>= \i -> return (LSIVImage i)
+    , try (keywordCase "inherit") >> return LSIVInherit
+    ]
+
+listStyleImage :: Stream s m Char => ParsecT s u m ListStyleImage
+listStyleImage = choice
+    [ try uri >>= \u -> return (LSIURI u)
+    , try (keywordCase "none") >> return LSINone
+    ]
+
+listStylePositionVal :: Stream s m Char => ParsecT s u m ListStylePositionVal
+listStylePositionVal = choice
+    [ try listStylePosition >>= \i -> return (LSPVPosition i)
+    , try (keywordCase "inherit") >> return LSPVInherit
+    ]
+
+listStylePosition :: Stream s m Char => ParsecT s u m ListStylePosition
+listStylePosition = choice
+    [ try (keywordCase "inside") >> return LSPInside
+    , try (keywordCase "outside") >> return LSPOutside
+    ]
+
+listStyleVal :: Stream s m Char => ParsecT s u m ListStyleVal
+listStyleVal = choice
+    [ try listStyleValElems >>= \vs -> return (LSVValues vs)
+    , try (keywordCase "inherit") >> return LSVInherit
+    ]
+
+listStyleValElems :: Stream s m Char => ParsecT s u m [ListStyleValElem]
+listStyleValElems = oneOrMoreInAnyOrder
+    [ try listStyleType >>= \t -> spaces >> return (LSVEType t)
+    , try listStylePosition >>= \p -> spaces >> return (LSVEPosition p)
+    , try listStyleImage >>= \i -> spaces >> return (LSVEImage i)
+    ]
+
+
+quotesVal :: Stream s m Char => ParsecT s u m QuotesVal
+quotesVal = choice
+    [ try quotePairs >>= \xs -> return (QVQuotePairs xs)
+    , try (keywordCase "none") >> return QVNone
+    , try (keywordCase "inherit") >> return QVInherit
+    ]
+
+quotePairs :: Stream s m Char => ParsecT s u m [QuotePair]
+quotePairs = many1 quotePair
+
+quotePair :: Stream s m Char => ParsecT s u m QuotePair
+quotePair = do
+    open <- stringLit
+    close <- stringLit
+    return (open, close)
+
+counterResetVal :: Stream s m Char => ParsecT s u m CounterResetVal
+counterResetVal = choice
+    [ try counterIdAndInts >>= \xs -> return (CRVCounters xs)
+    , try (keywordCase "none") >> return CRVNone
+    , try (keywordCase "inherit") >> return CRVInherit
+    ]
+
+counterIncrementVal :: Stream s m Char => ParsecT s u m CounterIncrementVal
+counterIncrementVal = choice
+    [ try counterIdAndInts >>= \xs -> return (CIVCounters xs)
+    , try (keywordCase "none") >> return CIVNone
+    , try (keywordCase "inherit") >> return CIVInherit
+    ]
+
+counterIdAndInts :: Stream s m Char => ParsecT s u m [(Id, (Maybe Int))]
+counterIdAndInts = many1 counterIdAndInt
+
+counterIdAndInt :: Stream s m Char => ParsecT s u m (Id, (Maybe Int))
+counterIdAndInt = do
+    id <- identifier
+    i <- optionMaybe integer
+    spaces
+    return (id, i)
 
 atMedia :: Stream s m Char => ParsecT s u m AtMedia
 atMedia = do
@@ -909,8 +1059,8 @@ percentage = do
     char '%'
     return (Percentage (read n :: Double))
 
-int :: Stream s m Char => ParsecT s u m Int
-int = do
+integer :: Stream s m Char => ParsecT s u m Int
+integer = do
     s <- option "" (S.string "-")
     ds <- many1 digit
     return (read (s ++ ds))
