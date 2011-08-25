@@ -86,6 +86,11 @@ module SandBox.Text.CSS.Types
   , QuotePair
   , CounterResetVal(..)
   , CounterIncrementVal(..)
+  , PageBreakBeforeVal(..)
+  , PageBreakAfterVal(..)
+  , PageBreakInsideVal(..)
+  , OrphansVal(..)
+  , WidowsVal(..)
   , Important
   {-, tdIdent
   , tdString
@@ -626,6 +631,41 @@ data CounterIncrementVal
     | CIVInherit
     deriving (Eq, Ord, Show)
 
+
+data PageBreakBeforeVal
+    = PBBVAuto
+    | PBBVAlways
+    | PBBVAvoid
+    | PBBVLeft
+    | PBBVRight
+    | PBBVInherit
+    deriving (Eq, Ord, Show)
+
+data PageBreakAfterVal
+    = PBAVAuto
+    | PBAVAlways
+    | PBAVAvoid
+    | PBAVLeft
+    | PBAVRight
+    | PBAVInherit
+    deriving (Eq, Ord, Show)
+
+data PageBreakInsideVal
+    = PBIVAvoid
+    | PBIVAuto
+    | PBIVInherit
+    deriving (Eq, Ord, Show)
+
+data OrphansVal
+    = OVInt Int
+    | OVInherit
+    deriving (Eq, Ord, Show)
+
+data WidowsVal
+    = WVInt Int
+    | WVInherit
+    deriving (Eq, Ord, Show)
+
 data AtMedia = AtMedia [MediaType] [Statement]
              deriving (Eq, Ord, Show)
 
@@ -713,6 +753,11 @@ data Declaration
     | DeclListStyleImage ListStyleImageVal Important
     | DeclListStylePosition ListStylePositionVal Important
     | DeclListStyle ListStyleVal Important
+    | DeclPageBreakBefore PageBreakBeforeVal Important
+    | DeclPageBreakAfter PageBreakAfterVal Important
+    | DeclPageBreakInside PageBreakInsideVal Important
+    | DeclOrphans OrphansVal Important
+    | DeclWidows WidowsVal Important
     deriving (Eq, Ord, Show)
 
 {-data Declaration = Declaration String Value

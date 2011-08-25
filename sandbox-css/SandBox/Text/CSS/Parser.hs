@@ -42,6 +42,7 @@ stylesheet
 , important
 , hasPseudoElement
 , composeSel
+, positiveIntNoSign
     ) where
 
 import Control.Monad (liftM)
@@ -225,6 +226,11 @@ declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
     , ("list-style-image", declSub listStyleImageVal DeclListStyleImage)
     , ("list-style-position", declSub listStylePositionVal DeclListStylePosition)
     , ("list-style", declSub listStyleVal DeclListStyle)
+    , ("page-break-before", declSub pageBreakBeforeVal DeclPageBreakBefore)
+    , ("page-break-after", declSub pageBreakAfterVal DeclPageBreakAfter)
+    , ("page-break-inside", declSub pageBreakInsideVal DeclPageBreakInside)
+    , ("orphans", declSub orphansVal DeclOrphans)
+    , ("widows", declSub widowsVal DeclWidows)
     ]
 
 
@@ -699,6 +705,46 @@ counterIdAndInt = do
     spaces
     return (id, i)
 
+pageBreakBeforeVal :: Stream s m Char => ParsecT s u m PageBreakBeforeVal
+pageBreakBeforeVal = choice
+    [ try (keywordCase "auto") >> return PBBVAuto
+    , try (keywordCase "always") >> return PBBVAlways
+    , try (keywordCase "avoid") >> return PBBVAvoid
+    , try (keywordCase "left") >> return PBBVLeft
+    , try (keywordCase "right") >> return PBBVRight
+    , try (keywordCase "inherit") >> return PBBVInherit
+    ]
+
+pageBreakAfterVal :: Stream s m Char => ParsecT s u m PageBreakAfterVal
+pageBreakAfterVal = choice
+    [ try (keywordCase "auto") >> return PBAVAuto
+    , try (keywordCase "always") >> return PBAVAlways
+    , try (keywordCase "avoid") >> return PBAVAvoid
+    , try (keywordCase "left") >> return PBAVLeft
+    , try (keywordCase "right") >> return PBAVRight
+    , try (keywordCase "inherit") >> return PBAVInherit
+    ]
+
+pageBreakInsideVal :: Stream s m Char => ParsecT s u m PageBreakInsideVal
+pageBreakInsideVal = choice
+    [ try (keywordCase "avoid") >> return PBIVAvoid
+    , try (keywordCase "auto") >> return PBIVAuto
+    , try (keywordCase "inherit") >> return PBIVInherit
+    ]
+
+orphansVal :: Stream s m Char => ParsecT s u m OrphansVal
+orphansVal = choice
+    [ try positiveIntNoSign >>= \n -> return (OVInt n)
+    , try (keywordCase "inherit") >> return OVInherit
+    ]
+
+widowsVal :: Stream s m Char => ParsecT s u m WidowsVal
+widowsVal = choice
+    [ try positiveIntNoSign >>= \n -> return (WVInt n)
+    , try (keywordCase "inherit") >> return WVInherit
+    ]
+
+
 atMedia :: Stream s m Char => ParsecT s u m AtMedia
 atMedia = do
     keywordCase "@media"
@@ -1058,6 +1104,14 @@ percentage = do
     n <- num
     char '%'
     return (Percentage (read n :: Double))
+
+positiveIntNoSign :: Stream s m Char => ParsecT s u m Int
+positiveIntNoSign = do
+    ds <- many1 digit <?> "postive integer without sign"
+    let n = read ds
+    if n > 0
+        then return n
+        else fail "Only positive integers are allowed."
 
 integer :: Stream s m Char => ParsecT s u m Int
 integer = do
