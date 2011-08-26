@@ -99,7 +99,8 @@ module SandBox.Text.CSS.Types
   , BackgroundPositionVal(..)
   , HorizPos(..)
   , VertPos(..)
-  , Pos(..)
+  , BackgroundVal(..)
+  , BackgroundValElem(..)
   , Important
   {-, tdIdent
   , tdString
@@ -727,14 +728,17 @@ data VertPos
     | VPosBottom
     deriving (Eq, Ord, Show)
 
-data Pos
-    = PosPercentage Percentage
-    | PosLength Length
-    | PosCenter
-    | PosLeft
-    | PosRight
-    | PosTop
-    | PosBottom
+data BackgroundVal
+    = BgVValues [BackgroundValElem]
+    | BgVInherit
+    deriving (Eq, Ord, Show)
+
+data BackgroundValElem
+    = BgVEColor BackgroundColorVal
+    | BgVEImage BackgroundImageVal
+    | BgVERepeat BackgroundRepeatVal
+    | BgVEAttachment BackgroundAttachmentVal
+    | BgVEPosition BackgroundPositionVal
     deriving (Eq, Ord, Show)
 
 data AtMedia = AtMedia [MediaType] [Statement]
@@ -835,6 +839,7 @@ data Declaration
     | DeclBackgroundRepeat BackgroundRepeatVal Important
     | DeclBackgroundAttachment BackgroundAttachmentVal Important
     | DeclBackgroundPosition BackgroundPositionVal Important
+    | DeclBackground BackgroundVal Important
     deriving (Eq, Ord, Show)
 
 {-data Declaration = Declaration String Value

@@ -240,6 +240,7 @@ declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
     , ("background-repeat", declSub backgroundRepeatVal DeclBackgroundRepeat)
     , ("background-attachment", declSub backgroundAttachmentVal DeclBackgroundAttachment)
     , ("background-position", declSub backgroundPositionVal DeclBackgroundPosition)
+    , ("background", declSub backgroundVal DeclBackground)
     ]
 
 
@@ -761,36 +762,62 @@ colorVal = choice
 
 backgroundColorVal :: Stream s m Char => ParsecT s u m BackgroundColorVal
 backgroundColorVal = choice
+    [ try backgroundColor
+    , try (keywordCase "inherit") >> return BgCVInherit
+    ]
+
+backgroundColor :: Stream s m Char => ParsecT s u m BackgroundColorVal
+backgroundColor = choice
     [ try color >>= \c -> return (BgCVColor c)
     , try (keywordCase "transparent") >> return BgCVTransparent
-    , try (keywordCase "inherit") >> return BgCVInherit
     ]
 
 backgroundImageVal :: Stream s m Char => ParsecT s u m BackgroundImageVal
 backgroundImageVal = choice
+    [ try backgroundImage
+    , try (keywordCase "inherit") >> return BgIVInherit
+    ]
+
+backgroundImage :: Stream s m Char => ParsecT s u m BackgroundImageVal
+backgroundImage = choice
     [ try uri >>= \u -> return (BgIVURI u)
     , try (keywordCase "none") >> return BgIVNone
-    , try (keywordCase "inherit") >> return BgIVInherit
     ]
 
 backgroundRepeatVal :: Stream s m Char => ParsecT s u m BackgroundRepeatVal
 backgroundRepeatVal = choice
+    [ try backgroundRepeat
+    , try (keywordCase "inherit") >> return BgRVInherit
+    ]
+
+backgroundRepeat :: Stream s m Char => ParsecT s u m BackgroundRepeatVal
+backgroundRepeat = choice
     [ try (keywordCase "repeat") >> return BgRVRepeat
     , try (keywordCase "repeat-x") >> return BgRVRepeatX
     , try (keywordCase "repeat-y") >> return BgRVRepeatY
     , try (keywordCase "no-repeat") >> return BgRVNoRepeat
-    , try (keywordCase "inherit") >> return BgRVInherit
     ]
 
 backgroundAttachmentVal :: Stream s m Char => ParsecT s u m BackgroundAttachmentVal
 backgroundAttachmentVal = choice
+    [ try backgroundAttachment
+    , try (keywordCase "inherit") >> return BgAVInherit
+    ]
+
+backgroundAttachment :: Stream s m Char => ParsecT s u m BackgroundAttachmentVal
+backgroundAttachment = choice
     [ try (keywordCase "scroll") >> return BgAVScroll
     , try (keywordCase "fixed") >> return BgAVFixed
-    , try (keywordCase "inherit") >> return BgAVInherit
     ]
 
 backgroundPositionVal :: Stream s m Char => ParsecT s u m BackgroundPositionVal
 backgroundPositionVal = choice
+    [ try backgroundPosition
+    , try (keywordCase "inherit") >> return BgPVInherit
+    ]
+
+backgroundPosition :: Stream s m Char => ParsecT s u m BackgroundPositionVal
+backgroundPosition = choice
     [ try signedPercentage >>= \p -> spaces >> withHPos (HPosPercentage p)
     , try signedLengthVal >>= \l -> spaces >> withHPos (HPosLength l)
     , try (symbol "left") >> withHPos HPosLeft
@@ -847,6 +874,21 @@ backgroundPositionVal = choice
               return (BgPVPos HPosRight VPosCenter)
         , return (BgPVPos HPosCenter VPosCenter)
         ]
+
+backgroundVal :: Stream s m Char => ParsecT s u m BackgroundVal
+backgroundVal = choice
+    [ try backgroundValElems >>= \vs -> return (BgVValues vs)
+    , try (keywordCase "inherit") >> return BgVInherit
+    ]
+
+backgroundValElems :: Stream s m Char => ParsecT s u m [BackgroundValElem]
+backgroundValElems = oneOrMoreInAnyOrder
+    [ try backgroundColor >>= \c -> spaces >> return (BgVEColor c)
+    , try backgroundImage >>= \i -> spaces >> return (BgVEImage i)
+    , try backgroundRepeat >>= \r -> spaces >> return (BgVERepeat r)
+    , try backgroundAttachment >>= \a -> spaces >> return (BgVEAttachment a)
+    , try backgroundPosition >>= \p -> spaces >> return (BgVEPosition p)
+    ]
 
 atMedia :: Stream s m Char => ParsecT s u m AtMedia
 atMedia = do
