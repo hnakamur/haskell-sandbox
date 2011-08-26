@@ -43,6 +43,9 @@ stylesheet
 , hasPseudoElement
 , composeSel
 , positiveIntNoSign
+, signedPercentage
+, sign
+, signedLengthVal
     ) where
 
 import Control.Monad (liftM)
@@ -231,6 +234,12 @@ declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
     , ("page-break-inside", declSub pageBreakInsideVal DeclPageBreakInside)
     , ("orphans", declSub orphansVal DeclOrphans)
     , ("widows", declSub widowsVal DeclWidows)
+    , ("color", declSub colorVal DeclColor)
+    , ("background-color", declSub backgroundColorVal DeclBackgroundColor)
+    , ("background-image", declSub backgroundImageVal DeclBackgroundImage)
+    , ("background-repeat", declSub backgroundRepeatVal DeclBackgroundRepeat)
+    , ("background-attachment", declSub backgroundAttachmentVal DeclBackgroundAttachment)
+    , ("background-position", declSub backgroundPositionVal DeclBackgroundPosition)
     ]
 
 
@@ -744,6 +753,100 @@ widowsVal = choice
     , try (keywordCase "inherit") >> return WVInherit
     ]
 
+colorVal :: Stream s m Char => ParsecT s u m ColorVal
+colorVal = choice
+    [ try color >>= \c -> return (CVColor c)
+    , try (keywordCase "inherit") >> return CVInherit
+    ]
+
+backgroundColorVal :: Stream s m Char => ParsecT s u m BackgroundColorVal
+backgroundColorVal = choice
+    [ try color >>= \c -> return (BgCVColor c)
+    , try (keywordCase "transparent") >> return BgCVTransparent
+    , try (keywordCase "inherit") >> return BgCVInherit
+    ]
+
+backgroundImageVal :: Stream s m Char => ParsecT s u m BackgroundImageVal
+backgroundImageVal = choice
+    [ try uri >>= \u -> return (BgIVURI u)
+    , try (keywordCase "none") >> return BgIVNone
+    , try (keywordCase "inherit") >> return BgIVInherit
+    ]
+
+backgroundRepeatVal :: Stream s m Char => ParsecT s u m BackgroundRepeatVal
+backgroundRepeatVal = choice
+    [ try (keywordCase "repeat") >> return BgRVRepeat
+    , try (keywordCase "repeat-x") >> return BgRVRepeatX
+    , try (keywordCase "repeat-y") >> return BgRVRepeatY
+    , try (keywordCase "no-repeat") >> return BgRVNoRepeat
+    , try (keywordCase "inherit") >> return BgRVInherit
+    ]
+
+backgroundAttachmentVal :: Stream s m Char => ParsecT s u m BackgroundAttachmentVal
+backgroundAttachmentVal = choice
+    [ try (keywordCase "scroll") >> return BgAVScroll
+    , try (keywordCase "fixed") >> return BgAVFixed
+    , try (keywordCase "inherit") >> return BgAVInherit
+    ]
+
+backgroundPositionVal :: Stream s m Char => ParsecT s u m BackgroundPositionVal
+backgroundPositionVal = choice
+    [ try signedPercentage >>= \p -> spaces >> withHPos (HPosPercentage p)
+    , try signedLengthVal >>= \l -> spaces >> withHPos (HPosLength l)
+    , try (symbol "left") >> withHPos HPosLeft
+    , try (symbol "center") >> withCenter
+    , try (symbol "right") >> withHPos HPosRight
+    , try (symbol "top") >> withVPos VPosTop
+    , try (symbol "bottom") >> withVPos VPosBottom
+    , try (keywordCase "inherit") >> return BgPVInherit
+    ]
+  where
+    withHPos :: Stream s m Char => HorizPos -> ParsecT s u m BackgroundPositionVal
+    withHPos hPos = choice
+        [ try signedPercentage >>= \p ->
+              return (BgPVPos hPos (VPosPercentage p))
+        , try signedLengthVal >>= \l ->
+              return (BgPVPos hPos (VPosLength l))
+        , try (symbol "top") >>
+              return (BgPVPos hPos VPosTop)
+        , try (symbol "center") >>
+              return (BgPVPos hPos VPosCenter)
+        , try (symbol "bottom") >>
+              return (BgPVPos hPos VPosBottom)
+        , return (BgPVPos hPos VPosCenter)
+        ]
+    withVPos :: Stream s m Char => VertPos -> ParsecT s u m BackgroundPositionVal
+    withVPos vPos = choice
+        [ try signedPercentage >>= \p ->
+              return (BgPVPos (HPosPercentage p) vPos)
+        , try signedLengthVal >>= \l ->
+              return (BgPVPos (HPosLength l) vPos)
+        , try (symbol "left") >>
+              return (BgPVPos HPosLeft vPos)
+        , try (symbol "center") >>
+              return (BgPVPos HPosCenter vPos)
+        , try (symbol "right") >>
+              return (BgPVPos HPosRight vPos)
+        , return (BgPVPos HPosCenter vPos)
+        ]
+    withCenter :: Stream s m Char => ParsecT s u m BackgroundPositionVal
+    withCenter = choice
+        [ try signedPercentage >>= \p ->
+              return (BgPVPos HPosCenter (VPosPercentage p))
+        , try signedLengthVal >>= \l ->
+              return (BgPVPos HPosCenter (VPosLength l))
+        , try (symbol "top") >>
+              return (BgPVPos HPosCenter VPosTop)
+        , try (symbol "center") >>
+              return (BgPVPos HPosCenter VPosCenter)
+        , try (symbol "bottom") >>
+              return (BgPVPos HPosCenter VPosBottom)
+        , try (symbol "left") >>
+              return (BgPVPos HPosLeft VPosCenter)
+        , try (symbol "right") >>
+              return (BgPVPos HPosRight VPosCenter)
+        , return (BgPVPos HPosCenter VPosCenter)
+        ]
 
 atMedia :: Stream s m Char => ParsecT s u m AtMedia
 atMedia = do
@@ -1068,13 +1171,23 @@ uriContent = try string
                           ]
                  )
 
+signedLengthVal :: Stream s m Char => ParsecT s u m Length
+signedLengthVal = do
+    s <- sign
+    n <- num
+    let x = read (s++n) :: Double
+    if x == 0
+    then optional lengthUnit >> return (Length 0 Nothing)
+    else (lengthUnit >>= \u -> return (Length x (Just u)))
+         <|> fail "length unit needed after non-zero value"
+
 lengthVal :: Stream s m Char => ParsecT s u m Length
 lengthVal = do
-    s <- num
-    let n = read s :: Double
-    if n == 0
+    n <- num
+    let x = read n :: Double
+    if x == 0
     then optional lengthUnit >> return (Length 0 Nothing)
-    else (lengthUnit >>= \u -> return (Length n (Just u)))
+    else (lengthUnit >>= \u -> return (Length x (Just u)))
          <|> fail "length unit needed after non-zero value"
 
 lengthUnit :: Stream s m Char => ParsecT s u m LengthUnit
@@ -1098,6 +1211,19 @@ pvWhiteSpace = choice
     , try (keywordCase "pre-line") >> return PVWhiteSpacePreLine
     ,     (keywordCase "inherit") >> return PVWhiteSpaceInherit
     ]
+
+signedPercentage :: Stream s m Char => ParsecT s u m Percentage
+signedPercentage = do
+    s <- sign
+    n <- num
+    char '%'
+    return (Percentage (read (s++n) :: Double))
+
+sign :: Stream s m Char => ParsecT s u m String
+sign =   (char '+' >> return "")
+     <|> (char '-' >> return "-")
+     <|> return ""
+       
 
 percentage :: Stream s m Char => ParsecT s u m Percentage
 percentage = do

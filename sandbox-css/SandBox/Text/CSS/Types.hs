@@ -91,6 +91,15 @@ module SandBox.Text.CSS.Types
   , PageBreakInsideVal(..)
   , OrphansVal(..)
   , WidowsVal(..)
+  , ColorVal(..)
+  , BackgroundColorVal(..)
+  , BackgroundImageVal(..)
+  , BackgroundRepeatVal(..)
+  , BackgroundAttachmentVal(..)
+  , BackgroundPositionVal(..)
+  , HorizPos(..)
+  , VertPos(..)
+  , Pos(..)
   , Important
   {-, tdIdent
   , tdString
@@ -666,6 +675,68 @@ data WidowsVal
     | WVInherit
     deriving (Eq, Ord, Show)
 
+data ColorVal
+    = CVColor Color
+    | CVInherit
+    deriving (Eq, Ord, Show)
+
+data BackgroundColorVal
+    = BgCVColor Color
+    | BgCVTransparent
+    | BgCVInherit
+    deriving (Eq, Ord, Show)
+
+data BackgroundImageVal
+    = BgIVURI URI
+    | BgIVNone
+    | BgIVInherit
+    deriving (Eq, Ord, Show)
+
+data BackgroundRepeatVal
+    = BgRVRepeat
+    | BgRVRepeatX
+    | BgRVRepeatY
+    | BgRVNoRepeat
+    | BgRVInherit
+    deriving (Eq, Ord, Show)
+
+data BackgroundAttachmentVal
+    = BgAVScroll
+    | BgAVFixed
+    | BgAVInherit
+    deriving (Eq, Ord, Show)
+
+data BackgroundPositionVal
+    = BgPVPos HorizPos VertPos
+    | BgPVInherit
+    deriving (Eq, Ord, Show)
+
+data HorizPos
+    = HPosPercentage Percentage
+    | HPosLength Length
+    | HPosLeft
+    | HPosCenter
+    | HPosRight
+    deriving (Eq, Ord, Show)
+
+data VertPos
+    = VPosPercentage Percentage
+    | VPosLength Length
+    | VPosTop
+    | VPosCenter
+    | VPosBottom
+    deriving (Eq, Ord, Show)
+
+data Pos
+    = PosPercentage Percentage
+    | PosLength Length
+    | PosCenter
+    | PosLeft
+    | PosRight
+    | PosTop
+    | PosBottom
+    deriving (Eq, Ord, Show)
+
 data AtMedia = AtMedia [MediaType] [Statement]
              deriving (Eq, Ord, Show)
 
@@ -758,6 +829,12 @@ data Declaration
     | DeclPageBreakInside PageBreakInsideVal Important
     | DeclOrphans OrphansVal Important
     | DeclWidows WidowsVal Important
+    | DeclColor ColorVal Important
+    | DeclBackgroundColor BackgroundColorVal Important
+    | DeclBackgroundImage BackgroundImageVal Important
+    | DeclBackgroundRepeat BackgroundRepeatVal Important
+    | DeclBackgroundAttachment BackgroundAttachmentVal Important
+    | DeclBackgroundPosition BackgroundPositionVal Important
     deriving (Eq, Ord, Show)
 
 {-data Declaration = Declaration String Value
