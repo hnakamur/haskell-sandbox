@@ -851,7 +851,8 @@ data RelativeSize
     deriving (Eq, Ord, Show)
 
 data FontVal
-    = FVVal [FontStyleVariantWeight] FontSize (Maybe LineHeight) [FontFamily]
+    = FVVal (Maybe FontStyle) (Maybe FontVariant) (Maybe FontWeight)
+            FontSize (Maybe LineHeight) [FontFamily]
     | FVCaption
     | FVIcon
     | FVMenu

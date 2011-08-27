@@ -49,6 +49,8 @@ stylesheet
 , fontFamilyList
 , fontFamily
 , fontSVW
+, fontVal
+, perm0
     ) where
 
 import Control.Monad (liftM)
@@ -60,38 +62,39 @@ import Text.Parsec hiding (string, space, spaces)
 import Text.Parsec.Language (emptyDef)
 import qualified Text.Parsec as S (string)
 import qualified Text.Parsec.Token as P
+import Text.Parsec.Perm ((<$$>), (<||>), (<$?>), (<|?>), permute)
 import SandBox.Text.CSS.Char
 import SandBox.Text.CSS.Parsec.Combinator
 import SandBox.Text.CSS.Types
 import Prelude hiding (any)
 import qualified Prelude as R (any)
 
-stylesheet :: Stream s m Char => ParsecT s u m [Statement]
+stylesheet :: Stream s Identity Char => ParsecT s u Identity [Statement]
 stylesheet = do
     spaces
     many statement
 
-statement :: Stream s m Char => ParsecT s u m Statement
+statement :: Stream s Identity Char => ParsecT s u Identity Statement
 statement = atRule <|> ruleSet
 
-atRule :: Stream s m Char => ParsecT s u m Statement
+atRule :: Stream s Identity Char => ParsecT s u Identity Statement
 atRule = do
     k <- atKeyword
     xs <- many (spaces >> any)
     b <- (optionMaybe (try (spaces >> block)) <|> return Nothing)
     return (AtRule k xs b)
 
-atCharset :: Stream s m Char => ParsecT s u m AtCharset
+atCharset :: Stream s Identity Char => ParsecT s u Identity AtCharset
 atCharset = do
     S.string "@charset \""
     n <- encodingName
     S.string "\";"
     return (AtCharset n)
 
-encodingName :: Stream s m Char => ParsecT s u m EncodingName
+encodingName :: Stream s Identity Char => ParsecT s u Identity EncodingName
 encodingName = name
 
-atImport :: Stream s m Char => ParsecT s u m AtImport
+atImport :: Stream s Identity Char => ParsecT s u Identity AtImport
 atImport = do
     keywordCase "@import"
     spaces
@@ -102,12 +105,12 @@ atImport = do
     semi
     return (AtImport u ts)
 
-mediaTypeList :: Stream s m Char => ParsecT s u m [MediaType]
+mediaTypeList :: Stream s Identity Char => ParsecT s u Identity [MediaType]
 mediaTypeList = (try (keywordCase "all") >> return [])
                 <|>
                 (try (sepBy1 mediaType comma))
   where
-    mediaType :: Stream s m Char => ParsecT s u m MediaType
+    mediaType :: Stream s Identity Char => ParsecT s u Identity MediaType
     mediaType = choice
                   [ try (keywordCase "braille") >> return MTBraille
                   , try (keywordCase "embossed") >> return MTHandheld
@@ -119,7 +122,7 @@ mediaTypeList = (try (keywordCase "all") >> return [])
                   , try (keywordCase "tv") >> return MTTv
                   ]
 
-atPage :: Stream s m Char => ParsecT s u m AtPage
+atPage :: Stream s Identity Char => ParsecT s u Identity AtPage
 atPage = do
     keywordCase "@page"
     spaces
@@ -128,17 +131,17 @@ atPage = do
     b <- atPageBlock
     return (AtPage s b)
 
-pageSelector :: Stream s m Char => ParsecT s u m PageSelector
+pageSelector :: Stream s Identity Char => ParsecT s u Identity PageSelector
 pageSelector = choice
     [ try (keyword ":first") >> return PSFirst
     , try (keyword ":left") >> return PSLeft
     , try (keyword ":right") >> return PSRight
     ]
 
-atPageBlock :: Stream s m Char => ParsecT s u m [Declaration]
+atPageBlock :: Stream s Identity Char => ParsecT s u Identity [Declaration]
 atPageBlock = braces (sepEndBy (marginDecl <?> "margin declaration") semi)
 
-marginDecl :: Stream s m Char => ParsecT s u m Declaration
+marginDecl :: Stream s Identity Char => ParsecT s u Identity Declaration
 marginDecl = do
     n <- try ident <?> "property name"
     if n `elem` marginPropNames
@@ -151,16 +154,16 @@ marginPropNames :: [String]
 marginPropNames =
     ["margin-top", "margin-bottom", "margin-right", "margin-left", "margin"]
 
-declaration :: Stream s m Char => ParsecT s u m Declaration
+declaration :: Stream s Identity Char => ParsecT s u Identity Declaration
 declaration = do
     n <- try ident <?> "property name"
     case (M.lookup (map toLower n) declSubMap) of
         Just d -> d
         Nothing -> unexpected ("property name: " ++ show n)
 
-declSub :: Stream s m Char =>
-               ParsecT s u m v -> (v -> Important -> Declaration) ->
-               String -> ParsecT s u m Declaration
+declSub :: Stream s Identity Char =>
+               ParsecT s u Identity v -> (v -> Important -> Declaration) ->
+               String -> ParsecT s u Identity Declaration
 declSub valueParser ctor propName = do
     spaces
     colon
@@ -170,7 +173,7 @@ declSub valueParser ctor propName = do
     i <- important
     return (ctor v i)
 
-declSubMap :: Stream s m Char => M.Map String (ParsecT s u m Declaration)
+declSubMap :: Stream s Identity Char => M.Map String (ParsecT s u Identity Declaration)
 declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
     [ ("border-top-width", declSub individualBorderWidthVal DeclBorderTopWidth)
     , ("border-bottom-width", declSub individualBorderWidthVal DeclBorderBottomWidth)
@@ -253,20 +256,20 @@ declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
     ]
 
 
-individualMarginVal :: Stream s m Char => ParsecT s u m MarginVal
+individualMarginVal :: Stream s Identity Char => ParsecT s u Identity MarginVal
 individualMarginVal = choice
     [ try marginWidth >>= \w -> return (MVWidth w)
     , try (keywordCase "inherit") >> return MVInherit
     ]
 
-shortHandMarginVal :: Stream s m Char => ParsecT s u m [MarginVal]
+shortHandMarginVal :: Stream s Identity Char => ParsecT s u Identity [MarginVal]
 shortHandMarginVal = choice
     [ try (countRange 1 4 (marginWidth >>= \w -> spaces >> return (MVWidth w)))
     , try (keywordCase "inherit") >> return [MVInherit]
     ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
-marginWidth :: Stream s m Char => ParsecT s u m MarginWidth
+marginWidth :: Stream s Identity Char => ParsecT s u Identity MarginWidth
 marginWidth = choice
     [ try percentage >>= \p -> return (MWPercentage p)
     , try lengthVal >>= \l -> return (MWLength l)
@@ -274,13 +277,13 @@ marginWidth = choice
     ]
 
 
-individualPaddingVal :: Stream s m Char => ParsecT s u m PaddingVal
+individualPaddingVal :: Stream s Identity Char => ParsecT s u Identity PaddingVal
 individualPaddingVal = choice
     [ try paddingWidth >>= \w -> return (PadWidth w)
     , try (keywordCase "inherit") >> return PadInherit
     ]
 
-shortHandPaddingVal :: Stream s m Char => ParsecT s u m [PaddingVal]
+shortHandPaddingVal :: Stream s Identity Char => ParsecT s u Identity [PaddingVal]
 shortHandPaddingVal = choice
     [ try (countRange 1 4 (paddingWidth >>= \w -> spaces >>
                            return (PadWidth w)))
@@ -288,7 +291,7 @@ shortHandPaddingVal = choice
     ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
-paddingWidth :: Stream s m Char => ParsecT s u m PaddingWidth
+paddingWidth :: Stream s Identity Char => ParsecT s u Identity PaddingWidth
 paddingWidth = choice
     [ try percentage >>= \p -> return (PWPercentage p)
     , try lengthVal >>= \l -> return (PWLength l)
@@ -296,20 +299,20 @@ paddingWidth = choice
 
 
 
-individualBorderWidthVal :: Stream s m Char => ParsecT s u m BorderWidthVal
+individualBorderWidthVal :: Stream s Identity Char => ParsecT s u Identity BorderWidthVal
 individualBorderWidthVal = choice
     [ try borderWidth >>= \w -> return (BWVWidth w)
     , try (keywordCase "inherit") >> return BWVInherit
     ]
 
-shortHandBorderWidthVal :: Stream s m Char => ParsecT s u m [BorderWidthVal]
+shortHandBorderWidthVal :: Stream s Identity Char => ParsecT s u Identity [BorderWidthVal]
 shortHandBorderWidthVal = choice
     [ try (countRange 1 4 (borderWidth >>= \w -> spaces >>
                            return (BWVWidth w)))
     , try (keywordCase "inherit") >> return [BWVInherit]
     ]
 
-borderWidth :: Stream s m Char => ParsecT s u m BorderWidth
+borderWidth :: Stream s Identity Char => ParsecT s u Identity BorderWidth
 borderWidth = choice
     [ try (keywordCase "thin") >> return BWThin
     , try (keywordCase "medium") >> return BWMedium
@@ -318,40 +321,40 @@ borderWidth = choice
     ]
 
 
-individualBorderColorVal :: Stream s m Char => ParsecT s u m BorderColorVal
+individualBorderColorVal :: Stream s Identity Char => ParsecT s u Identity BorderColorVal
 individualBorderColorVal = choice
     [ try borderColor >>= \w -> return (BCVColor w)
     , try (keywordCase "inherit") >> return BCVInherit
     ]
 
-shortHandBorderColorVal :: Stream s m Char => ParsecT s u m [BorderColorVal]
+shortHandBorderColorVal :: Stream s Identity Char => ParsecT s u Identity [BorderColorVal]
 shortHandBorderColorVal = choice
     [ try (countRange 1 4 (borderColor >>= \w -> spaces >>
                            return (BCVColor w)))
     , try (keywordCase "inherit") >> return [BCVInherit]
     ]
 
-borderColor :: Stream s m Char => ParsecT s u m BorderColor
+borderColor :: Stream s Identity Char => ParsecT s u Identity BorderColor
 borderColor = choice
     [ try color >>= \c -> return (BCColor c)
     , try (keywordCase "transparent") >> return BCTransparent
     ]
 
 
-individualBorderStyleVal :: Stream s m Char => ParsecT s u m BorderStyleVal
+individualBorderStyleVal :: Stream s Identity Char => ParsecT s u Identity BorderStyleVal
 individualBorderStyleVal = choice
     [ try borderStyle >>= \w -> return (BSVStyle w)
     , try (keywordCase "inherit") >> return BSVInherit
     ]
 
-shortHandBorderStyleVal :: Stream s m Char => ParsecT s u m [BorderStyleVal]
+shortHandBorderStyleVal :: Stream s Identity Char => ParsecT s u Identity [BorderStyleVal]
 shortHandBorderStyleVal = choice
     [ try (countRange 1 4 (borderStyle >>= \w -> spaces >>
                            return (BSVStyle w)))
     , try (keywordCase "inherit") >> return [BSVInherit]
     ]
 
-borderStyle :: Stream s m Char => ParsecT s u m BorderStyle
+borderStyle :: Stream s Identity Char => ParsecT s u Identity BorderStyle
 borderStyle = choice
     [ try (keywordCase "none") >> return BSNone
     , try (keywordCase "hidden") >> return BSHidden
@@ -366,20 +369,20 @@ borderStyle = choice
     ]
 
 
-borderVal :: Stream s m Char => ParsecT s u m BorderVal
+borderVal :: Stream s Identity Char => ParsecT s u Identity BorderVal
 borderVal = choice
     [ try borderValElems >>= \vs -> return (BVBorder vs)
     , try (keywordCase "inherit") >> return BVInherit
     ]
 
-borderValElems :: Stream s m Char => ParsecT s u m [BorderValElem]
+borderValElems :: Stream s Identity Char => ParsecT s u Identity [BorderValElem]
 borderValElems = oneOrMoreInAnyOrder
     [ try borderWidth >>= \w -> spaces >> return (BVEWidth w)
     , try borderStyle >>= \s -> spaces >> return (BVEStyle s)
     , try borderColor >>= \c -> spaces >> return (BVEColor c)
     ]
 
-displayVal :: Stream s m Char => ParsecT s u m DisplayVal
+displayVal :: Stream s Identity Char => ParsecT s u Identity DisplayVal
 displayVal = choice
     [ try (keywordCase "inline") >> return DVInline
     , try (keywordCase "block") >> return DVBlock
@@ -400,7 +403,7 @@ displayVal = choice
     ]
 
 
-positionVal :: Stream s m Char => ParsecT s u m PositionVal
+positionVal :: Stream s Identity Char => ParsecT s u Identity PositionVal
 positionVal = choice
     [ try (keywordCase "static") >> return PosStatic
     , try (keywordCase "relative") >> return PosRelative
@@ -410,7 +413,7 @@ positionVal = choice
     ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
-boxOffsetVal :: Stream s m Char => ParsecT s u m BoxOffsetVal
+boxOffsetVal :: Stream s Identity Char => ParsecT s u Identity BoxOffsetVal
 boxOffsetVal = choice
     [ try percentage >>= \p -> return (BOVPercentage p)
     , try lengthVal >>= \l -> return (BOVLength l)
@@ -418,7 +421,7 @@ boxOffsetVal = choice
     , try (keywordCase "inherit") >> return BOVInherit
     ]
 
-floatVal :: Stream s m Char => ParsecT s u m FloatVal
+floatVal :: Stream s Identity Char => ParsecT s u Identity FloatVal
 floatVal = choice
     [ try (keywordCase "left") >> return FlVLeft
     , try (keywordCase "right") >> return FlVRight
@@ -426,7 +429,7 @@ floatVal = choice
     , try (keywordCase "inherit") >> return FlVInherit
     ]
 
-clearVal :: Stream s m Char => ParsecT s u m ClearVal
+clearVal :: Stream s Identity Char => ParsecT s u Identity ClearVal
 clearVal = choice
     [ try (keywordCase "none") >> return CleNone
     , try (keywordCase "left") >> return CleLeft
@@ -435,21 +438,21 @@ clearVal = choice
     , try (keywordCase "inherit") >> return CleInherit
     ]
 
-zIndexVal :: Stream s m Char => ParsecT s u m ZIndexVal
+zIndexVal :: Stream s Identity Char => ParsecT s u Identity ZIndexVal
 zIndexVal = choice
     [ try (keywordCase "auto") >> return ZIndAuto
     , try integer >>= \n -> return (ZIndInt n)
     , try (keywordCase "inherit") >> return ZIndInherit
     ]
 
-directionVal :: Stream s m Char => ParsecT s u m DirectionVal
+directionVal :: Stream s Identity Char => ParsecT s u Identity DirectionVal
 directionVal = choice
     [ try (keywordCase "ltr") >> return DirLtr
     , try (keywordCase "rtl") >> return DirRtl
     , try (keywordCase "inherit") >> return DirInherit
     ]
 
-unicodeBidiVal :: Stream s m Char => ParsecT s u m UnicodeBidiVal
+unicodeBidiVal :: Stream s Identity Char => ParsecT s u Identity UnicodeBidiVal
 unicodeBidiVal = choice
     [ try (keywordCase "normal") >> return UBdNormal
     , try (keywordCase "embed") >> return UBdEmbed
@@ -458,7 +461,7 @@ unicodeBidiVal = choice
     ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
-widthVal :: Stream s m Char => ParsecT s u m WidthVal
+widthVal :: Stream s Identity Char => ParsecT s u Identity WidthVal
 widthVal = choice
     [ try percentage >>= \p -> return (WidPercentage p)
     , try lengthVal >>= \l -> return (WidLength l)
@@ -467,7 +470,7 @@ widthVal = choice
     ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
-minWidthVal :: Stream s m Char => ParsecT s u m MinWidthVal
+minWidthVal :: Stream s Identity Char => ParsecT s u Identity MinWidthVal
 minWidthVal = choice
     [ try percentage >>= \p -> return (MinWidPercentage p)
     , try lengthVal >>= \l -> return (MinWidLength l)
@@ -475,7 +478,7 @@ minWidthVal = choice
     ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
-maxWidthVal :: Stream s m Char => ParsecT s u m MaxWidthVal
+maxWidthVal :: Stream s Identity Char => ParsecT s u Identity MaxWidthVal
 maxWidthVal = choice
     [ try percentage >>= \p -> return (MaxWidPercentage p)
     , try lengthVal >>= \l -> return (MaxWidLength l)
@@ -484,7 +487,7 @@ maxWidthVal = choice
     ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
-heightVal :: Stream s m Char => ParsecT s u m HeightVal
+heightVal :: Stream s Identity Char => ParsecT s u Identity HeightVal
 heightVal = choice
     [ try percentage >>= \p -> return (HeiPercentage p)
     , try lengthVal >>= \l -> return (HeiLength l)
@@ -493,7 +496,7 @@ heightVal = choice
     ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
-minHeightVal :: Stream s m Char => ParsecT s u m MinHeightVal
+minHeightVal :: Stream s Identity Char => ParsecT s u Identity MinHeightVal
 minHeightVal = choice
     [ try percentage >>= \p -> return (MinHeiPercentage p)
     , try lengthVal >>= \l -> return (MinHeiLength l)
@@ -501,7 +504,7 @@ minHeightVal = choice
     ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
-maxHeightVal :: Stream s m Char => ParsecT s u m MaxHeightVal
+maxHeightVal :: Stream s Identity Char => ParsecT s u Identity MaxHeightVal
 maxHeightVal = choice
     [ try percentage >>= \p -> return (MaxHeiPercentage p)
     , try lengthVal >>= \l -> return (MaxHeiLength l)
@@ -509,14 +512,14 @@ maxHeightVal = choice
     , try (keywordCase "inherit") >> return MaxHeiInherit
     ]
 
-lineHeightVal :: Stream s m Char => ParsecT s u m LineHeightVal
+lineHeightVal :: Stream s Identity Char => ParsecT s u Identity LineHeightVal
 lineHeightVal = choice
     [ try lineHeight >>= \h -> return (LHVVal h)
     , try (keywordCase "inherit") >> return LHVInherit
     ]
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
-lineHeight :: Stream s m Char => ParsecT s u m LineHeight
+lineHeight :: Stream s Identity Char => ParsecT s u Identity LineHeight
 lineHeight = choice
     [ try (keywordCase "normal") >> return LHNormal
     , try percentage >>= \p -> return (LHPercentage p)
@@ -524,11 +527,11 @@ lineHeight = choice
     , try nonNegativeNumber >>= \n -> return (LHNumber n)
     ]
 
-nonNegativeNumber :: Stream s m Char => ParsecT s u m Double
+nonNegativeNumber :: Stream s Identity Char => ParsecT s u Identity Double
 nonNegativeNumber = num >>= \s -> return (read s)
 
 {- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
-verticalAlignVal :: Stream s m Char => ParsecT s u m VerticalAlignVal
+verticalAlignVal :: Stream s Identity Char => ParsecT s u Identity VerticalAlignVal
 verticalAlignVal = choice
     [ try (keywordCase "baseline") >> return VAliBaseline
     , try (keywordCase "sub") >> return VAliSub
@@ -543,7 +546,7 @@ verticalAlignVal = choice
     , try (keywordCase "inherit") >> return VAliInherit
     ]
 
-overflowVal :: Stream s m Char => ParsecT s u m OverflowVal
+overflowVal :: Stream s Identity Char => ParsecT s u Identity OverflowVal
 overflowVal = choice
     [ try (keywordCase "visible") >> return OveVisible
     , try (keywordCase "hidden") >> return OveHidden
@@ -552,14 +555,14 @@ overflowVal = choice
     , try (keywordCase "inherit") >> return OveInherit
     ]
 
-clipVal :: Stream s m Char => ParsecT s u m ClipVal
+clipVal :: Stream s Identity Char => ParsecT s u Identity ClipVal
 clipVal = choice
     [ try clipShape
     , try (keywordCase "auto") >> return CliAuto
     , try (keywordCase "inherit") >> return CliInherit
     ]
 
-clipShape :: Stream s m Char => ParsecT s u m ClipVal
+clipShape :: Stream s Identity Char => ParsecT s u Identity ClipVal
 clipShape = do
     symbol "rect("
     top <- clipOffset
@@ -572,13 +575,13 @@ clipShape = do
     symbol ")"
     return (CliShape top right bottom left)
 
-clipOffset :: Stream s m Char => ParsecT s u m ClipOffset
+clipOffset :: Stream s Identity Char => ParsecT s u Identity ClipOffset
 clipOffset = choice
     [ try lengthVal >>= \l -> return (CliOffLength l)
     , try (keywordCase "auto") >> return CliOffAuto
     ]
 
-visibilityVal :: Stream s m Char => ParsecT s u m VisibilityVal
+visibilityVal :: Stream s Identity Char => ParsecT s u Identity VisibilityVal
 visibilityVal = choice
     [ try (keywordCase "visible") >> return VisVisible
     , try (keywordCase "hidden") >> return VisHidden
@@ -586,7 +589,7 @@ visibilityVal = choice
     , try (keywordCase "inherit") >> return VisInherit
     ]
 
-contentVal :: Stream s m Char => ParsecT s u m ContentVal
+contentVal :: Stream s Identity Char => ParsecT s u Identity ContentVal
 contentVal = choice
     [ try (keywordCase "normal") >> return ConNormal
     , try (keywordCase "none") >> return ConNone
@@ -594,10 +597,10 @@ contentVal = choice
     , try (keywordCase "inherit") >> return ConInherit
     ]
 
-contentValElems :: Stream s m Char => ParsecT s u m [ContentValElem]
+contentValElems :: Stream s Identity Char => ParsecT s u Identity [ContentValElem]
 contentValElems = many1 (spaces >> contentValElem)
 
-contentValElem :: Stream s m Char => ParsecT s u m ContentValElem
+contentValElem :: Stream s Identity Char => ParsecT s u Identity ContentValElem
 contentValElem = choice
     [ try stringLit >>= \s -> return (CVEString s)
     , try uri >>= \u -> return (CVEURI u)
@@ -609,12 +612,12 @@ contentValElem = choice
     , try (keywordCase "no-close-quote") >> return CVENoCloseQuote
     ]
 
-contentValAttr :: Stream s m Char => ParsecT s u m ContentValElem
+contentValAttr :: Stream s Identity Char => ParsecT s u Identity ContentValElem
 contentValAttr = do
     id <- between (symbol "attr(") (symbol ")") identifier
     return (CVEAttr id)
 
-counter :: Stream s m Char => ParsecT s u m Counter
+counter :: Stream s Identity Char => ParsecT s u Identity Counter
 counter = choice
     [ try (between (symbol "counter(") (symbol ")")
               (identifier >>= \id ->
@@ -627,13 +630,13 @@ counter = choice
                return (Counters id s t)))
     ]
 
-listStyleTypeVal :: Stream s m Char => ParsecT s u m ListStyleTypeVal
+listStyleTypeVal :: Stream s Identity Char => ParsecT s u Identity ListStyleTypeVal
 listStyleTypeVal = choice
     [ try listStyleType >>= \t -> return (LSTVType t)
     , try (keywordCase "inherit") >> return LSTVInherit
     ]
 
-listStyleType :: Stream s m Char => ParsecT s u m ListStyleType
+listStyleType :: Stream s Identity Char => ParsecT s u Identity ListStyleType
 listStyleType = choice
     [ try (keywordCase "disc") >> return LSTDisc
     , try (keywordCase "circle") >> return LSTCircle
@@ -651,37 +654,37 @@ listStyleType = choice
     , try (keywordCase "none") >> return LSTNone
     ]
 
-listStyleImageVal :: Stream s m Char => ParsecT s u m ListStyleImageVal
+listStyleImageVal :: Stream s Identity Char => ParsecT s u Identity ListStyleImageVal
 listStyleImageVal = choice
     [ try listStyleImage >>= \i -> return (LSIVImage i)
     , try (keywordCase "inherit") >> return LSIVInherit
     ]
 
-listStyleImage :: Stream s m Char => ParsecT s u m ListStyleImage
+listStyleImage :: Stream s Identity Char => ParsecT s u Identity ListStyleImage
 listStyleImage = choice
     [ try uri >>= \u -> return (LSIURI u)
     , try (keywordCase "none") >> return LSINone
     ]
 
-listStylePositionVal :: Stream s m Char => ParsecT s u m ListStylePositionVal
+listStylePositionVal :: Stream s Identity Char => ParsecT s u Identity ListStylePositionVal
 listStylePositionVal = choice
     [ try listStylePosition >>= \i -> return (LSPVPosition i)
     , try (keywordCase "inherit") >> return LSPVInherit
     ]
 
-listStylePosition :: Stream s m Char => ParsecT s u m ListStylePosition
+listStylePosition :: Stream s Identity Char => ParsecT s u Identity ListStylePosition
 listStylePosition = choice
     [ try (keywordCase "inside") >> return LSPInside
     , try (keywordCase "outside") >> return LSPOutside
     ]
 
-listStyleVal :: Stream s m Char => ParsecT s u m ListStyleVal
+listStyleVal :: Stream s Identity Char => ParsecT s u Identity ListStyleVal
 listStyleVal = choice
     [ try listStyleValElems >>= \vs -> return (LSVValues vs)
     , try (keywordCase "inherit") >> return LSVInherit
     ]
 
-listStyleValElems :: Stream s m Char => ParsecT s u m [ListStyleValElem]
+listStyleValElems :: Stream s Identity Char => ParsecT s u Identity [ListStyleValElem]
 listStyleValElems = oneOrMoreInAnyOrder
     [ try listStyleType >>= \t -> spaces >> return (LSVEType t)
     , try listStylePosition >>= \p -> spaces >> return (LSVEPosition p)
@@ -689,47 +692,47 @@ listStyleValElems = oneOrMoreInAnyOrder
     ]
 
 
-quotesVal :: Stream s m Char => ParsecT s u m QuotesVal
+quotesVal :: Stream s Identity Char => ParsecT s u Identity QuotesVal
 quotesVal = choice
     [ try quotePairs >>= \xs -> return (QVQuotePairs xs)
     , try (keywordCase "none") >> return QVNone
     , try (keywordCase "inherit") >> return QVInherit
     ]
 
-quotePairs :: Stream s m Char => ParsecT s u m [QuotePair]
+quotePairs :: Stream s Identity Char => ParsecT s u Identity [QuotePair]
 quotePairs = many1 quotePair
 
-quotePair :: Stream s m Char => ParsecT s u m QuotePair
+quotePair :: Stream s Identity Char => ParsecT s u Identity QuotePair
 quotePair = do
     open <- stringLit
     close <- stringLit
     return (open, close)
 
-counterResetVal :: Stream s m Char => ParsecT s u m CounterResetVal
+counterResetVal :: Stream s Identity Char => ParsecT s u Identity CounterResetVal
 counterResetVal = choice
     [ try counterIdAndInts >>= \xs -> return (CRVCounters xs)
     , try (keywordCase "none") >> return CRVNone
     , try (keywordCase "inherit") >> return CRVInherit
     ]
 
-counterIncrementVal :: Stream s m Char => ParsecT s u m CounterIncrementVal
+counterIncrementVal :: Stream s Identity Char => ParsecT s u Identity CounterIncrementVal
 counterIncrementVal = choice
     [ try counterIdAndInts >>= \xs -> return (CIVCounters xs)
     , try (keywordCase "none") >> return CIVNone
     , try (keywordCase "inherit") >> return CIVInherit
     ]
 
-counterIdAndInts :: Stream s m Char => ParsecT s u m [(Id, (Maybe Int))]
+counterIdAndInts :: Stream s Identity Char => ParsecT s u Identity [(Id, (Maybe Int))]
 counterIdAndInts = many1 counterIdAndInt
 
-counterIdAndInt :: Stream s m Char => ParsecT s u m (Id, (Maybe Int))
+counterIdAndInt :: Stream s Identity Char => ParsecT s u Identity (Id, (Maybe Int))
 counterIdAndInt = do
     id <- identifier
     i <- optionMaybe integer
     spaces
     return (id, i)
 
-pageBreakBeforeVal :: Stream s m Char => ParsecT s u m PageBreakBeforeVal
+pageBreakBeforeVal :: Stream s Identity Char => ParsecT s u Identity PageBreakBeforeVal
 pageBreakBeforeVal = choice
     [ try (keywordCase "auto") >> return PBBVAuto
     , try (keywordCase "always") >> return PBBVAlways
@@ -739,7 +742,7 @@ pageBreakBeforeVal = choice
     , try (keywordCase "inherit") >> return PBBVInherit
     ]
 
-pageBreakAfterVal :: Stream s m Char => ParsecT s u m PageBreakAfterVal
+pageBreakAfterVal :: Stream s Identity Char => ParsecT s u Identity PageBreakAfterVal
 pageBreakAfterVal = choice
     [ try (keywordCase "auto") >> return PBAVAuto
     , try (keywordCase "always") >> return PBAVAlways
@@ -749,62 +752,62 @@ pageBreakAfterVal = choice
     , try (keywordCase "inherit") >> return PBAVInherit
     ]
 
-pageBreakInsideVal :: Stream s m Char => ParsecT s u m PageBreakInsideVal
+pageBreakInsideVal :: Stream s Identity Char => ParsecT s u Identity PageBreakInsideVal
 pageBreakInsideVal = choice
     [ try (keywordCase "avoid") >> return PBIVAvoid
     , try (keywordCase "auto") >> return PBIVAuto
     , try (keywordCase "inherit") >> return PBIVInherit
     ]
 
-orphansVal :: Stream s m Char => ParsecT s u m OrphansVal
+orphansVal :: Stream s Identity Char => ParsecT s u Identity OrphansVal
 orphansVal = choice
     [ try positiveIntNoSign >>= \n -> return (OVInt n)
     , try (keywordCase "inherit") >> return OVInherit
     ]
 
-widowsVal :: Stream s m Char => ParsecT s u m WidowsVal
+widowsVal :: Stream s Identity Char => ParsecT s u Identity WidowsVal
 widowsVal = choice
     [ try positiveIntNoSign >>= \n -> return (WVInt n)
     , try (keywordCase "inherit") >> return WVInherit
     ]
 
-colorVal :: Stream s m Char => ParsecT s u m ColorVal
+colorVal :: Stream s Identity Char => ParsecT s u Identity ColorVal
 colorVal = choice
     [ try color >>= \c -> return (CVColor c)
     , try (keywordCase "inherit") >> return CVInherit
     ]
 
-backgroundColorVal :: Stream s m Char => ParsecT s u m BackgroundColorVal
+backgroundColorVal :: Stream s Identity Char => ParsecT s u Identity BackgroundColorVal
 backgroundColorVal = choice
     [ try backgroundColor
     , try (keywordCase "inherit") >> return BgCVInherit
     ]
 
-backgroundColor :: Stream s m Char => ParsecT s u m BackgroundColorVal
+backgroundColor :: Stream s Identity Char => ParsecT s u Identity BackgroundColorVal
 backgroundColor = choice
     [ try color >>= \c -> return (BgCVColor c)
     , try (keywordCase "transparent") >> return BgCVTransparent
     ]
 
-backgroundImageVal :: Stream s m Char => ParsecT s u m BackgroundImageVal
+backgroundImageVal :: Stream s Identity Char => ParsecT s u Identity BackgroundImageVal
 backgroundImageVal = choice
     [ try backgroundImage
     , try (keywordCase "inherit") >> return BgIVInherit
     ]
 
-backgroundImage :: Stream s m Char => ParsecT s u m BackgroundImageVal
+backgroundImage :: Stream s Identity Char => ParsecT s u Identity BackgroundImageVal
 backgroundImage = choice
     [ try uri >>= \u -> return (BgIVURI u)
     , try (keywordCase "none") >> return BgIVNone
     ]
 
-backgroundRepeatVal :: Stream s m Char => ParsecT s u m BackgroundRepeatVal
+backgroundRepeatVal :: Stream s Identity Char => ParsecT s u Identity BackgroundRepeatVal
 backgroundRepeatVal = choice
     [ try backgroundRepeat
     , try (keywordCase "inherit") >> return BgRVInherit
     ]
 
-backgroundRepeat :: Stream s m Char => ParsecT s u m BackgroundRepeatVal
+backgroundRepeat :: Stream s Identity Char => ParsecT s u Identity BackgroundRepeatVal
 backgroundRepeat = choice
     [ try (keywordCase "repeat") >> return BgRVRepeat
     , try (keywordCase "repeat-x") >> return BgRVRepeatX
@@ -812,25 +815,25 @@ backgroundRepeat = choice
     , try (keywordCase "no-repeat") >> return BgRVNoRepeat
     ]
 
-backgroundAttachmentVal :: Stream s m Char => ParsecT s u m BackgroundAttachmentVal
+backgroundAttachmentVal :: Stream s Identity Char => ParsecT s u Identity BackgroundAttachmentVal
 backgroundAttachmentVal = choice
     [ try backgroundAttachment
     , try (keywordCase "inherit") >> return BgAVInherit
     ]
 
-backgroundAttachment :: Stream s m Char => ParsecT s u m BackgroundAttachmentVal
+backgroundAttachment :: Stream s Identity Char => ParsecT s u Identity BackgroundAttachmentVal
 backgroundAttachment = choice
     [ try (keywordCase "scroll") >> return BgAVScroll
     , try (keywordCase "fixed") >> return BgAVFixed
     ]
 
-backgroundPositionVal :: Stream s m Char => ParsecT s u m BackgroundPositionVal
+backgroundPositionVal :: Stream s Identity Char => ParsecT s u Identity BackgroundPositionVal
 backgroundPositionVal = choice
     [ try backgroundPosition
     , try (keywordCase "inherit") >> return BgPVInherit
     ]
 
-backgroundPosition :: Stream s m Char => ParsecT s u m BackgroundPositionVal
+backgroundPosition :: Stream s Identity Char => ParsecT s u Identity BackgroundPositionVal
 backgroundPosition = choice
     [ try signedPercentage >>= \p -> spaces >> withHPos (HPosPercentage p)
     , try signedLengthVal >>= \l -> spaces >> withHPos (HPosLength l)
@@ -842,7 +845,7 @@ backgroundPosition = choice
     , try (keywordCase "inherit") >> return BgPVInherit
     ]
   where
-    withHPos :: Stream s m Char => HorizPos -> ParsecT s u m BackgroundPositionVal
+    withHPos :: Stream s Identity Char => HorizPos -> ParsecT s u Identity BackgroundPositionVal
     withHPos hPos = choice
         [ try signedPercentage >>= \p ->
               return (BgPVPos hPos (VPosPercentage p))
@@ -856,7 +859,7 @@ backgroundPosition = choice
               return (BgPVPos hPos VPosBottom)
         , return (BgPVPos hPos VPosCenter)
         ]
-    withVPos :: Stream s m Char => VertPos -> ParsecT s u m BackgroundPositionVal
+    withVPos :: Stream s Identity Char => VertPos -> ParsecT s u Identity BackgroundPositionVal
     withVPos vPos = choice
         [ try signedPercentage >>= \p ->
               return (BgPVPos (HPosPercentage p) vPos)
@@ -870,7 +873,7 @@ backgroundPosition = choice
               return (BgPVPos HPosRight vPos)
         , return (BgPVPos HPosCenter vPos)
         ]
-    withCenter :: Stream s m Char => ParsecT s u m BackgroundPositionVal
+    withCenter :: Stream s Identity Char => ParsecT s u Identity BackgroundPositionVal
     withCenter = choice
         [ try signedPercentage >>= \p ->
               return (BgPVPos HPosCenter (VPosPercentage p))
@@ -889,13 +892,13 @@ backgroundPosition = choice
         , return (BgPVPos HPosCenter VPosCenter)
         ]
 
-backgroundVal :: Stream s m Char => ParsecT s u m BackgroundVal
+backgroundVal :: Stream s Identity Char => ParsecT s u Identity BackgroundVal
 backgroundVal = choice
     [ try backgroundValElems >>= \vs -> return (BgVValues vs)
     , try (keywordCase "inherit") >> return BgVInherit
     ]
 
-backgroundValElems :: Stream s m Char => ParsecT s u m [BackgroundValElem]
+backgroundValElems :: Stream s Identity Char => ParsecT s u Identity [BackgroundValElem]
 backgroundValElems = oneOrMoreInAnyOrder
     [ try backgroundColor >>= \c -> spaces >> return (BgVEColor c)
     , try backgroundImage >>= \i -> spaces >> return (BgVEImage i)
@@ -905,22 +908,22 @@ backgroundValElems = oneOrMoreInAnyOrder
     ]
 
 {- NOTE: Order is significant. We must try 'inherit' first. -}
-fontFamilyVal :: Stream s m Char => ParsecT s u m FontFamilyVal
+fontFamilyVal :: Stream s Identity Char => ParsecT s u Identity FontFamilyVal
 fontFamilyVal = choice
     [ try (keywordCase "inherit") >> return FFVInherit
     , try fontFamilyList >>= \xs -> return (FFVValues xs)
     ]
 
-fontFamilyList :: Stream s m Char => ParsecT s u m [FontFamily]
+fontFamilyList :: Stream s Identity Char => ParsecT s u Identity [FontFamily]
 fontFamilyList = sepBy1 (try fontFamily) comma
 
-fontFamily :: Stream s m Char => ParsecT s u m FontFamily
+fontFamily :: Stream s Identity Char => ParsecT s u Identity FontFamily
 fontFamily = choice
     [ try genericFamily >>= \f -> return (FFGeneric f)
     , try familyName >>= \n -> return (FFName n)
     ]
 
-genericFamily :: Stream s m Char => ParsecT s u m GenericFamily
+genericFamily :: Stream s Identity Char => ParsecT s u Identity GenericFamily
 genericFamily = choice
     [ try (keywordCase "serif") >> return Serif
     , try (keywordCase "sans-serif") >> return SansSerif
@@ -929,44 +932,44 @@ genericFamily = choice
     , try (keywordCase "monospace") >> return Monospace
     ]
 
-familyName :: Stream s m Char => ParsecT s u m String
+familyName :: Stream s Identity Char => ParsecT s u Identity String
 familyName = choice
     [ try identifier
     , try stringLit
     ]
 
-fontStyleVal :: Stream s m Char => ParsecT s u m FontStyleVal
+fontStyleVal :: Stream s Identity Char => ParsecT s u Identity FontStyleVal
 fontStyleVal = choice
     [ try fontStyle >>= \s -> return (FStVVal s)
     , try (keywordCase "inherit") >> return FStVInherit
     ]
 
-fontStyle :: Stream s m Char => ParsecT s u m FontStyle
+fontStyle :: Stream s Identity Char => ParsecT s u Identity FontStyle
 fontStyle = choice
     [ try (keywordCase "normal") >> return FStNormal
     , try (keywordCase "italic") >> return FStItalic
     , try (keywordCase "oblique") >> return FStOblique
     ]
 
-fontVariantVal :: Stream s m Char => ParsecT s u m FontVariantVal
+fontVariantVal :: Stream s Identity Char => ParsecT s u Identity FontVariantVal
 fontVariantVal = choice
     [ try fontVariant >>= \s -> return (FVVVal s)
     , try (keywordCase "inherit") >> return FVVInherit
     ]
 
-fontVariant :: Stream s m Char => ParsecT s u m FontVariant
+fontVariant :: Stream s Identity Char => ParsecT s u Identity FontVariant
 fontVariant = choice
     [ try (keywordCase "normal") >> return FVNormal
     , try (keywordCase "small-caps") >> return FVSmallCaps
     ]
 
-fontWeightVal :: Stream s m Char => ParsecT s u m FontWeightVal
+fontWeightVal :: Stream s Identity Char => ParsecT s u Identity FontWeightVal
 fontWeightVal = choice
     [ try fontWeight >>= \s -> return (FWVVal s)
     , try (keywordCase "inherit") >> return FWVInherit
     ]
 
-fontWeight :: Stream s m Char => ParsecT s u m FontWeight
+fontWeight :: Stream s Identity Char => ParsecT s u Identity FontWeight
 fontWeight = choice
     [ try (keywordCase "normal") >> return FWNormal
     , try (keywordCase "bold") >> return FWBold
@@ -983,13 +986,13 @@ fontWeight = choice
     , try (keyword "900") >> return FW900
     ]
 
-fontSizeVal :: Stream s m Char => ParsecT s u m FontSizeVal
+fontSizeVal :: Stream s Identity Char => ParsecT s u Identity FontSizeVal
 fontSizeVal = choice
     [ try fontSize >>= \s -> return (FSVVal s)
     , try (keywordCase "inherit") >> return FSVInherit
     ]
 
-fontSize :: Stream s m Char => ParsecT s u m FontSize
+fontSize :: Stream s Identity Char => ParsecT s u Identity FontSize
 fontSize = choice
     [ try absoluteSize  >>= \s -> return (FSAbs s)
     , try relativeSize  >>= \s -> return (FSRel s)
@@ -997,7 +1000,7 @@ fontSize = choice
     , try lengthVal  >>= \s -> return (FSLength s)
     ]
 
-absoluteSize :: Stream s m Char => ParsecT s u m AbsoluteSize
+absoluteSize :: Stream s Identity Char => ParsecT s u Identity AbsoluteSize
 absoluteSize = choice
     [ try (keywordCase "xx-small") >> return ASXXSmall
     , try (keywordCase "x-small") >> return ASXSmall
@@ -1008,13 +1011,13 @@ absoluteSize = choice
     , try (keywordCase "xx-large") >> return ASXXLarge
     ]
 
-relativeSize :: Stream s m Char => ParsecT s u m RelativeSize
+relativeSize :: Stream s Identity Char => ParsecT s u Identity RelativeSize
 relativeSize = choice
     [ try (keywordCase "larger") >> return RSLarger
     , try (keywordCase "smaller") >> return RSSmaller
     ]
 
-fontVal :: Stream s m Char => ParsecT s u m FontVal
+fontVal :: Stream s Identity Char => ParsecT s u Identity FontVal
 fontVal = choice
     [ try (keywordCase "caption") >> return FVCaption
     , try (keywordCase "icon") >> return FVIcon
@@ -1026,24 +1029,25 @@ fontVal = choice
     , try shorthand
     ]
   where
-    shorthand :: Stream s m Char => ParsecT s u m FontVal
+    shorthand :: Stream s Identity Char => ParsecT s u Identity FontVal
     shorthand = do
-        svws <- option [] fontSVW
+        (st, var, wei) <- fontSVW
         sz <- fontSize
         spaces
         lh <- optionMaybe (symbol "/" >> lineHeight)
         spaces
         ffs <- fontFamilyList
-        return (FVVal svws sz lh ffs)
+        return (FVVal st var wei sz lh ffs)
 
-fontSVW :: Stream s m Char => ParsecT s u m [FontStyleVariantWeight]
-fontSVW = oneOrMoreInAnyOrder
-    [ try fontStyle >>= \s -> spaces >> return (FSVWStyle s)
-    , try fontVariant >>= \v -> spaces >> return (FSVWVariant v)
-    , try fontWeight >>= \w -> spaces >> return (FSVWWeight w)
-    ]
+fontSVW :: Stream s Identity Char => ParsecT s u Identity (Maybe FontStyle, Maybe FontVariant, Maybe FontWeight)
+fontSVW = permute (
+            (,,)
+            <$?> (Nothing, fontStyle >>= \s -> spaces >> return (Just s))
+            <|?> (Nothing, fontVariant >>= \v -> spaces >> return (Just v))
+            <|?> (Nothing, fontWeight >>= \w -> spaces >> return (Just w))
+          )
 
-atMedia :: Stream s m Char => ParsecT s u m AtMedia
+atMedia :: Stream s Identity Char => ParsecT s u Identity AtMedia
 atMedia = do
     keywordCase "@media"
     spaces
@@ -1052,16 +1056,16 @@ atMedia = do
     rs <- braces (many ruleSet)
     return (AtMedia ts rs)
 
-ruleSet :: Stream s m Char => ParsecT s u m Statement
+ruleSet :: Stream s Identity Char => ParsecT s u Identity Statement
 ruleSet = do
     ss <- selectorList
     b <- declarationBlock
     return (RuleSet ss b)
 
-selectorList :: Stream s m Char => ParsecT s u m [Selector]
+selectorList :: Stream s Identity Char => ParsecT s u Identity [Selector]
 selectorList = sepBy selector comma
 
-selector :: Stream s m Char => ParsecT s u m Selector
+selector :: Stream s Identity Char => ParsecT s u Identity Selector
 selector =
     simpleSel >>= \s1 -> (
       (try (spaces1 >> selector) >>= \s2 ->
@@ -1076,7 +1080,7 @@ selector =
       return (SimpleSel s1)
     )
 
-simpleSel :: Stream s m Char => ParsecT s u m SimpleSel
+simpleSel :: Stream s Identity Char => ParsecT s u Identity SimpleSel
 simpleSel =
     (typeSel >>= \t ->
      many (try (spaces >> subSel)) >>= \s ->
@@ -1092,9 +1096,9 @@ simpleSel =
      return (UnivSel s)
     )
 
-composeSel :: Stream s m Char =>
+composeSel :: Stream s Identity Char =>
               (Selector -> Selector -> Selector) -> SimpleSel -> Selector ->
-              ParsecT s u m Selector
+              ParsecT s u Identity Selector
 composeSel op s1 s2 =
     if (hasPseudoElement s1)
         then fail "pseudo-elements may only be appended after the last simple selector of the selector."
@@ -1108,14 +1112,14 @@ isPseudoElement (SSPseudoElementSel _) = True
 isPseudoElement _ = False
 
 {- NOTE: typeSel is not lexeme parser. -}
-typeSel :: Stream s m Char => ParsecT s u m String
+typeSel :: Stream s Identity Char => ParsecT s u Identity String
 typeSel = name
 
 {- NOTE: univSel is not lexeme parser. -}
-univSel :: Stream s m Char => ParsecT s u m String
+univSel :: Stream s Identity Char => ParsecT s u Identity String
 univSel = S.string "*"
 
-subSel :: Stream s m Char => ParsecT s u m SubSel
+subSel :: Stream s Identity Char => ParsecT s u Identity SubSel
 subSel = 
     (attrSel >>= \s -> return (AttrSel s))
     <|>
@@ -1127,7 +1131,7 @@ subSel =
     <|>
     (pseudoElementSel >>= \s -> return (SSPseudoElementSel s))
 
-attrSel :: Stream s m Char => ParsecT s u m AttrSel
+attrSel :: Stream s Identity Char => ParsecT s u Identity AttrSel
 attrSel = between (char '[' >> spaces) (char ']') (
             name >>= \n ->
             spaces >> (
@@ -1141,25 +1145,25 @@ attrSel = between (char '[' >> spaces) (char ']') (
             )
           )
 
-attrVal :: Stream s m Char => ParsecT s u m String
+attrVal :: Stream s Identity Char => ParsecT s u Identity String
 attrVal =   identifier
         <|> stringLit
 
 {- Note: No space is allow after '.'. -}
-classSel :: Stream s m Char => ParsecT s u m SubSel
+classSel :: Stream s Identity Char => ParsecT s u Identity SubSel
 classSel = do
     char '.'
     n <- name
     return (ClassSel n)
 
 {- Note: No space is allowed after '#'. -}
-idSel :: Stream s m Char => ParsecT s u m SubSel
+idSel :: Stream s Identity Char => ParsecT s u Identity SubSel
 idSel = do
     char '#'
     i <- ident
     return (IdSel i)
 
-pseudoClassSel :: Stream s m Char => ParsecT s u m PseudoClassSel
+pseudoClassSel :: Stream s Identity Char => ParsecT s u Identity PseudoClassSel
 pseudoClassSel = choice
     [ try (keywordCase ":first-child") >> return PCSFirstChild
     , try (keywordCase ":link") >> return PCSLink
@@ -1171,7 +1175,7 @@ pseudoClassSel = choice
         return (PCSLang i)
     ]
 
-pseudoElementSel :: Stream s m Char => ParsecT s u m PseudoElementSel
+pseudoElementSel :: Stream s Identity Char => ParsecT s u Identity PseudoElementSel
 pseudoElementSel = choice
     [ try (keywordCase ":first-line") >> return PESFirstLine
     , try (keywordCase ":first-letter") >> return PESFirstLetter
@@ -1179,38 +1183,38 @@ pseudoElementSel = choice
     , try (keywordCase ":after") >> return PESAfter
     ]
 
-declarationBlock :: Stream s m Char => ParsecT s u m [Declaration]
+declarationBlock :: Stream s Identity Char => ParsecT s u Identity [Declaration]
 declarationBlock =
     spaces >> braces (sepEndBy (declaration <?> "declaration") semi)
 
-parens :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+parens :: Stream s Identity Char => ParsecT s u Identity a -> ParsecT s u Identity a
 parens = between (symbol "(") (symbol ")")
 
-braces :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+braces :: Stream s Identity Char => ParsecT s u Identity a -> ParsecT s u Identity a
 braces = between (symbol "{") (symbol "}")
 
-lexeme :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+lexeme :: Stream s Identity Char => ParsecT s u Identity a -> ParsecT s u Identity a
 lexeme p = do { x <- p; spaces; return x }
 
-symbol :: Stream s m Char => String -> ParsecT s u m String
+symbol :: Stream s Identity Char => String -> ParsecT s u Identity String
 symbol name = lexeme (S.string name)
 
-{-hash :: Stream s m Char => ParsecT s u m String
+{-hash :: Stream s Identity Char => ParsecT s u Identity String
 hash = symbol "#"-}
 
-dot :: Stream s m Char => ParsecT s u m String
+dot :: Stream s Identity Char => ParsecT s u Identity String
 dot = symbol "."
 
-semi :: Stream s m Char => ParsecT s u m String
+semi :: Stream s Identity Char => ParsecT s u Identity String
 semi = symbol ";"
 
-comma :: Stream s m Char => ParsecT s u m String
+comma :: Stream s Identity Char => ParsecT s u Identity String
 comma = symbol ","
 
-colon :: Stream s m Char => ParsecT s u m String
+colon :: Stream s Identity Char => ParsecT s u Identity String
 colon = symbol ":"
 
-strCase :: Stream s m Char => String -> ParsecT s u m String
+strCase :: Stream s Identity Char => String -> ParsecT s u Identity String
 strCase [] = return []
 strCase s@(c:cs) = satisfy (charCaseEq c) >> strCase cs >> return s
 
@@ -1222,7 +1226,7 @@ css21Style = emptyDef
                , P.caseSensitive = False
                }
 
-css21Style :: Stream s m Char => P.GenLanguageDef s u m
+css21Style :: Stream s Identity Char => P.GenLanguageDef s u m
 css21Style = P.LanguageDef
                { P.commentStart = "/*"
                , P.commentEnd = "*/"
@@ -1238,30 +1242,30 @@ css21Style = P.LanguageDef
                }
 
 lexer :: P.TokenParser ()
-lexer :: Stream s m Char => ParsecT s u m String
+lexer :: Stream s Identity Char => ParsecT s u Identity String
 lexer = P.makeTokenParser css21Style
 lexer = P.TokenParser
 
-braces :: Stream s m Char => ParsecT s u m a -> ParsecT s u m a
+braces :: Stream s Identity Char => ParsecT s u Identity a -> ParsecT s u Identity a
 braces :: ParsecT String () Identity a -> ParsecT String () Identity a
 braces = P.braces lexer-}
          
-color :: Stream s m Char => ParsecT s u m Color
+color :: Stream s Identity Char => ParsecT s u Identity Color
 color = hashColor <|> basicNamedColor
 
-hashColor :: Stream s m Char => ParsecT s u m Color
+hashColor :: Stream s Identity Char => ParsecT s u Identity Color
 hashColor = do
     char '#'
     try sixHexDigitColor <|> threeHexDigitColor
 
-sixHexDigitColor :: Stream s m Char => ParsecT s u m Color
+sixHexDigitColor :: Stream s Identity Char => ParsecT s u Identity Color
 sixHexDigitColor = do
     r <- count 2 hexDigit
     g <- count 2 hexDigit
     b <- count 2 hexDigit
     return $ RGBColor (hexToI r) (hexToI g) (hexToI b)
 
-threeHexDigitColor :: Stream s m Char => ParsecT s u m Color
+threeHexDigitColor :: Stream s Identity Char => ParsecT s u Identity Color
 threeHexDigitColor = do
     r <- hexDigit
     g <- hexDigit
@@ -1270,35 +1274,35 @@ threeHexDigitColor = do
                       (hexToI (replicate 2 g))
                       (hexToI (replicate 2 b))
 
-basicNamedColor :: Stream s m Char => ParsecT s u m Color
+basicNamedColor :: Stream s Identity Char => ParsecT s u Identity Color
 basicNamedColor = do
     n <- name
     case (basicNameToColor n) of
       Just c -> return c
       Nothing -> fail "invalid color name"
 
-asciiAlpha :: Stream s m Char => ParsecT s u m Char
+asciiAlpha :: Stream s Identity Char => ParsecT s u Identity Char
 asciiAlpha = satisfy isAsciiAlpha
 
-value :: Stream s m Char => ParsecT s u m Value
+value :: Stream s Identity Char => ParsecT s u Identity Value
 value = do
     xs <- many1 valueElem
     return (Value xs)
 
-valueElem :: Stream s m Char => ParsecT s u m ValueElem
+valueElem :: Stream s Identity Char => ParsecT s u Identity ValueElem
 valueElem =
     choice [ do{ a <- try any; return (VEAny a) }
            , do{ b <- try block; return (VEBlock b) }
            , do{ k <- atKeyword; return (VEAtKeyword k) }
            ]
 
-block :: Stream s m Char => ParsecT s u m Block
+block :: Stream s Identity Char => ParsecT s u Identity Block
 block = do
     xs <- between (char '{' >> spaces) (char '}' >> spaces)
                   (many blockElem)
     return (Block xs)
 
-blockElem :: Stream s m Char => ParsecT s u m BlockElem
+blockElem :: Stream s Identity Char => ParsecT s u Identity BlockElem
 blockElem = do
     e <- choice [ do{ a <- try any; return (BEAny a) }
                 , do{ b <- try block; return (BEBlock b) }
@@ -1307,7 +1311,7 @@ blockElem = do
     spaces
     return e
 
-any :: Stream s m Char => ParsecT s u m Any
+any :: Stream s Identity Char => ParsecT s u Identity Any
 any = do
     a <- choice [ try identifier >>= \i -> return (Ident i)
                 , try stringLit >>= \s -> return (CSSString s)
@@ -1322,42 +1326,42 @@ any = do
     return a
 
 
-identifier :: Stream s m Char => ParsecT s u m String
+identifier :: Stream s Identity Char => ParsecT s u Identity String
 identifier = lexeme ident
 
-stringLit :: Stream s m Char => ParsecT s u m String
+stringLit :: Stream s Identity Char => ParsecT s u Identity String
 stringLit = lexeme string
 
-atKeyword :: Stream s m Char => ParsecT s u m AtKeyword
+atKeyword :: Stream s Identity Char => ParsecT s u Identity AtKeyword
 atKeyword = do
     char '@'
     i <- ident
     return (AtKeyword i)
 
-hash :: Stream s m Char => ParsecT s u m Any
+hash :: Stream s Identity Char => ParsecT s u Identity Any
 hash = do
     char '#'
     n <- name
     return (Hash n)
 
-number :: Stream s m Char => ParsecT s u m Any
+number :: Stream s Identity Char => ParsecT s u Identity Any
 number = do
     n <- num
     return (Number n)
 
-dimension :: Stream s m Char => ParsecT s u m Any
+dimension :: Stream s Identity Char => ParsecT s u Identity Any
 dimension = do
     n <- num
     i <- ident
     return (Dimension n i)
 
-uri :: Stream s m Char => ParsecT s u m URI
+uri :: Stream s Identity Char => ParsecT s u Identity URI
 uri = do
     between (S.string "url(" >> spaces) (spaces >> S.string ")")
             uriContent
 
 
-uriContent :: Stream s m Char => ParsecT s u m String
+uriContent :: Stream s Identity Char => ParsecT s u Identity String
 uriContent = try string
              <|> (many $ choice
                           [ try (satisfy isUnquotedURIContentChar)
@@ -1366,7 +1370,7 @@ uriContent = try string
                           ]
                  )
 
-signedLengthVal :: Stream s m Char => ParsecT s u m Length
+signedLengthVal :: Stream s Identity Char => ParsecT s u Identity Length
 signedLengthVal = do
     s <- sign
     n <- num
@@ -1376,7 +1380,7 @@ signedLengthVal = do
     else (lengthUnit >>= \u -> return (Length x (Just u)))
          <|> fail "length unit needed after non-zero value"
 
-lengthVal :: Stream s m Char => ParsecT s u m Length
+lengthVal :: Stream s Identity Char => ParsecT s u Identity Length
 lengthVal = do
     n <- num
     let x = read n :: Double
@@ -1385,7 +1389,7 @@ lengthVal = do
     else (lengthUnit >>= \u -> return (Length x (Just u)))
          <|> fail "length unit needed after non-zero value"
 
-lengthUnit :: Stream s m Char => ParsecT s u m LengthUnit
+lengthUnit :: Stream s Identity Char => ParsecT s u Identity LengthUnit
 lengthUnit = choice 
                [ try (keywordCase "em") >> return Em
                , try (keywordCase "ex") >> return Ex
@@ -1397,7 +1401,7 @@ lengthUnit = choice
                , try (keywordCase "px") >> return Px
                ]
 
-pvWhiteSpace :: Stream s m Char => ParsecT s u m PVWhiteSpace
+pvWhiteSpace :: Stream s Identity Char => ParsecT s u Identity PVWhiteSpace
 pvWhiteSpace = choice
     [ try (keywordCase "normal") >> return PVWhiteSpaceNormal
     , try (keywordCase "pre") >> return PVWhiteSpacePre
@@ -1407,26 +1411,26 @@ pvWhiteSpace = choice
     ,     (keywordCase "inherit") >> return PVWhiteSpaceInherit
     ]
 
-signedPercentage :: Stream s m Char => ParsecT s u m Percentage
+signedPercentage :: Stream s Identity Char => ParsecT s u Identity Percentage
 signedPercentage = do
     s <- sign
     n <- num
     char '%'
     return (Percentage (read (s++n) :: Double))
 
-sign :: Stream s m Char => ParsecT s u m String
+sign :: Stream s Identity Char => ParsecT s u Identity String
 sign =   (char '+' >> return "")
      <|> (char '-' >> return "-")
      <|> return ""
        
 
-percentage :: Stream s m Char => ParsecT s u m Percentage
+percentage :: Stream s Identity Char => ParsecT s u Identity Percentage
 percentage = do
     n <- num
     char '%'
     return (Percentage (read n :: Double))
 
-positiveIntNoSign :: Stream s m Char => ParsecT s u m Int
+positiveIntNoSign :: Stream s Identity Char => ParsecT s u Identity Int
 positiveIntNoSign = do
     ds <- many1 digit <?> "postive integer without sign"
     let n = read ds
@@ -1434,109 +1438,109 @@ positiveIntNoSign = do
         then return n
         else fail "Only positive integers are allowed."
 
-integer :: Stream s m Char => ParsecT s u m Int
+integer :: Stream s Identity Char => ParsecT s u Identity Int
 integer = do
     s <- option "" (S.string "-")
     ds <- many1 digit
     return (read (s ++ ds))
 
-important :: Stream s m Char => ParsecT s u m Important
+important :: Stream s Identity Char => ParsecT s u Identity Important
 important = option False (symbol "!" >> keyword "important" >> return True)
 
-keyword :: Stream s m Char => String -> ParsecT s u m String
+keyword :: Stream s Identity Char => String -> ParsecT s u Identity String
 keyword name = do
     n <- S.string name <?> name
     notFollowedBy nmchar <?> ("end of " ++ show name)
     return n
 
-keywordCase :: Stream s m Char => String -> ParsecT s u m String
+keywordCase :: Stream s Identity Char => String -> ParsecT s u Identity String
 keywordCase name = do
     n <- strCase name <?> name
     notFollowedBy nmchar <?> ("end of " ++ show name)
     return n
 
-ident :: Stream s m Char => ParsecT s u m String
+ident :: Stream s Identity Char => ParsecT s u Identity String
 ident = do
     h <- option "" (S.string "-")
     s <- nmstart
     cs <- many nmchar
     return (h ++ (s:cs))
 
-name :: Stream s m Char => ParsecT s u m String
+name :: Stream s Identity Char => ParsecT s u Identity String
 name = many1 nmchar
 
-nmstart :: Stream s m Char => ParsecT s u m Char
+nmstart :: Stream s Identity Char => ParsecT s u Identity Char
 nmstart = satisfy isNmStartChar <|> escape
 
-nonascii :: Stream s m Char => ParsecT s u m Char
+nonascii :: Stream s Identity Char => ParsecT s u Identity Char
 nonascii = satisfy isNonAsciiChar
 
-nmchar :: Stream s m Char => ParsecT s u m Char
+nmchar :: Stream s Identity Char => ParsecT s u Identity Char
 nmchar = satisfy isNmChar <|> escape
 
-unicode :: Stream s m Char => ParsecT s u m Char
+unicode :: Stream s Identity Char => ParsecT s u Identity Char
 unicode = do
     char '\\'
     ds <- countRange 1 6 hexDigit
     optional (crlf <|> count 1 space)
     return $ chr (hexToI ds)
 
-escape :: Stream s m Char => ParsecT s u m Char
+escape :: Stream s Identity Char => ParsecT s u Identity Char
 escape = try unicode <|> simpleEscape
 
-simpleEscape :: Stream s m Char => ParsecT s u m Char
+simpleEscape :: Stream s Identity Char => ParsecT s u Identity Char
 simpleEscape = char '\\' >> satisfy isSimpleEscapeChar
 
-crlf :: Stream s m Char => ParsecT s u m String
+crlf :: Stream s Identity Char => ParsecT s u Identity String
 crlf = S.string "\r\n"
 
 hexToI :: Num a => String -> a
 hexToI ds = let ((n,_):_) = readHex ds
             in n
 
-string :: Stream s m Char => ParsecT s u m String
+string :: Stream s Identity Char => ParsecT s u Identity String
 string = string1 <|> string2
 
-badstring :: Stream s m Char => ParsecT s u m String
+badstring :: Stream s Identity Char => ParsecT s u Identity String
 badstring = badstring1 <|> badstring2
 
-string1 :: Stream s m Char => ParsecT s u m String
+string1 :: Stream s Identity Char => ParsecT s u Identity String
 string1 = stringSub doubleQuote (stringContent '"') doubleQuote
 
-badstring1 :: Stream s m Char => ParsecT s u m String
+badstring1 :: Stream s Identity Char => ParsecT s u Identity String
 badstring1 = stringSub doubleQuote (stringContent '"') (try badStringEnd)
 
-stringContent :: Stream s m Char => Char -> ParsecT s u m String
+stringContent :: Stream s Identity Char => Char -> ParsecT s u Identity String
 stringContent quoteChar = choice [ sequence [try escape]
                      , try (char '\\' >> nl)
                      , sequence [satisfy (isPlainStrChar quoteChar)]
                      ]
 
-stringSub :: Stream s m Char => ParsecT s u m String ->
-                                ParsecT s u m String ->
-                                ParsecT s u m String ->
-                                ParsecT s u m String
+stringSub :: Stream s Identity Char => ParsecT s u Identity String ->
+                                ParsecT s u Identity String ->
+                                ParsecT s u Identity String ->
+                                ParsecT s u Identity String
 stringSub start unit end = do
   start
   t <- manyTill unit end
   return (concat t)
 
-doubleQuote :: Stream s m Char => ParsecT s u m String
+doubleQuote :: Stream s Identity Char => ParsecT s u Identity String
 doubleQuote = S.string "\""
 
-singleQuote :: Stream s m Char => ParsecT s u m String
+singleQuote :: Stream s Identity Char => ParsecT s u Identity String
 singleQuote = S.string "'"
 
-badStringEnd :: Stream s m Char => ParsecT s u m String
+badStringEnd :: Stream s Identity Char => ParsecT s u Identity String
 badStringEnd = S.string "\\?"
 
-string2 :: Stream s m Char => ParsecT s u m String
+string2 :: Stream s Identity Char => ParsecT s u Identity String
 string2 = stringSub singleQuote (stringContent '\'') singleQuote
 
-badstring2 :: Stream s m Char => ParsecT s u m String
+badstring2 :: Stream s Identity Char => ParsecT s u Identity String
 badstring2 = stringSub singleQuote (stringContent '\'') (try badStringEnd)
 
-nl :: Stream s m Char => ParsecT s u m String
+nl :: Stream s Identity Char => ParsecT s u Identity String
 nl =   S.string "\n"
    <|> (char '\r' >>= \cr ->
          (try (char '\n') >>= \lf -> return [cr, lf])
@@ -1544,7 +1548,7 @@ nl =   S.string "\n"
        )
    <|> S.string "\f"
 
-num :: Stream s m Char => ParsecT s u m String
+num :: Stream s Identity Char => ParsecT s u Identity String
 num = try (
         do{ int <- many digit
           ; dot <- char '.'
@@ -1554,11 +1558,18 @@ num = try (
       )
       <|> many1 digit
 
-spaces1 :: Stream s m Char => ParsecT s u m String
+spaces1 :: Stream s Identity Char => ParsecT s u Identity String
 spaces1 = many1 space
 
-spaces :: Stream s m Char => ParsecT s u m String
+spaces :: Stream s Identity Char => ParsecT s u Identity String
 spaces = many space
 
-space :: Stream s m Char => ParsecT s u m Char
+space :: Stream s Identity Char => ParsecT s u Identity Char
 space = satisfy isSpaceChar
+
+
+perm0 :: Stream s Identity Char => ParsecT s u Identity (Char, Char, Char)
+perm0 = permute ((,,) <$?> ('_', oneOf "na")
+                      <|?> ('_', oneOf "nb")
+                      <|?> ('_', oneOf "nc"))
+

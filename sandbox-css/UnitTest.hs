@@ -62,11 +62,18 @@ tests = test
     , testParse
         fontSVW
         "italic small-caps normal"
-        [FSVWStyle FStItalic,FSVWVariant FVSmallCaps, FSVWWeight FWNormal]
+        (Just FStItalic, Just FVSmallCaps, Just FWNormal)
     , testParse
         fontSVW
         "normal small-caps italic"
-        [FSVWWeight FWNormal,FSVWVariant FVSmallCaps, FSVWStyle FStItalic]
+        (Just FStItalic, Just FVSmallCaps, Just FWNormal)
+    , testParse
+        fontVal
+        "italic small-caps normal 12px/14px serif"
+        (FVVal (Just FStItalic) (Just FVSmallCaps) (Just FWNormal)
+               (FSLength (Length 12.0 (Just Px)))
+               (Just (LHLength (Length 14.0 (Just Px))))
+               [FFGeneric Serif])
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "abc" "abc"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "acb" "acb"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "cab" "cab"
