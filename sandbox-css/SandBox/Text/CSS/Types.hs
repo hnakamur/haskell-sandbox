@@ -131,6 +131,16 @@ module SandBox.Text.CSS.Types
   , TextTransform(..)
   , WhiteSpaceVal(..)
   , WhiteSpace(..)
+  , CaptionSideVal(..)
+  , CaptionSide(..)
+  , TableLayoutVal(..)
+  , TableLayout(..)
+  , BorderCollapseVal(..)
+  , BorderCollapse(..)
+  , BorderSpacingVal(..)
+  , BorderSpacing(..)
+  , EmptyCellsVal(..)
+  , EmptyCells(..)
   , Important
   {-, tdIdent
   , tdString
@@ -960,6 +970,55 @@ data WhiteSpace
     | WhSPreLine
     deriving (Eq, Ord, Show)
 
+data CaptionSideVal
+    = CSVVal CaptionSide
+    | CSVInherit
+    deriving (Eq, Ord, Show)
+
+data CaptionSide
+    = CSTop
+    | CSBottom
+    deriving (Eq, Ord, Show)
+
+data TableLayoutVal
+    = TLVVal TableLayout
+    | TLVInherit
+    deriving (Eq, Ord, Show)
+
+data TableLayout
+    = TLAuto
+    | TLFixed
+    deriving (Eq, Ord, Show)
+
+data BorderCollapseVal
+    = BCoVVal BorderCollapse
+    | BCoVInherit
+    deriving (Eq, Ord, Show)
+
+data BorderCollapse
+    = BCoCollapse
+    | BCoSeparate
+    deriving (Eq, Ord, Show)
+
+data BorderSpacingVal
+    = BSpVVal BorderSpacing
+    | BSpVInherit
+    deriving (Eq, Ord, Show)
+
+data BorderSpacing
+    = BorderSpacing Length Length
+    deriving (Eq, Ord, Show)
+
+data EmptyCellsVal
+    = ECVVal EmptyCells
+    | ECVInherit
+    deriving (Eq, Ord, Show)
+
+data EmptyCells
+    = ECShow
+    | ECHide
+    deriving (Eq, Ord, Show)
+
 data AtMedia = AtMedia [MediaType] [Statement]
              deriving (Eq, Ord, Show)
 
@@ -1072,6 +1131,11 @@ data Declaration
     | DeclWordSpacing WordSpacingVal Important
     | DeclTextTransform TextTransformVal Important
     | DeclWhiteSpace WhiteSpaceVal Important
+    | DeclCaptionSide CaptionSideVal Important
+    | DeclTableLayout TableLayoutVal Important
+    | DeclBorderCollapse BorderCollapseVal Important
+    | DeclBorderSpacing BorderSpacingVal Important
+    | DeclEmptyCells EmptyCellsVal Important
     deriving (Eq, Ord, Show)
 
 {-data Declaration = Declaration String Value

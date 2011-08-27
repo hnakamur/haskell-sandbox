@@ -259,6 +259,11 @@ declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
     , ("word-spacing", declSub wordSpacingVal DeclWordSpacing)
     , ("text-transform", declSub textTransformVal DeclTextTransform)
     , ("white-space", declSub whiteSpaceVal DeclWhiteSpace)
+    , ("caption-side", declSub captionSideVal DeclCaptionSide)
+    , ("table-layout", declSub tableLayoutVal DeclTableLayout)
+    , ("border-collapse", declSub borderCollapseVal DeclBorderCollapse)
+    , ("border-spacing", declSub borderSpacingVal DeclBorderSpacing)
+    , ("empty-cells", declSub emptyCellsVal DeclEmptyCells)
     ]
 
 
@@ -1150,6 +1155,67 @@ whiteSpace = choice
     , try (keywordCase "nowrap") >> return WhSNowrap
     , try (keywordCase "pre-wrap") >> return WhSPreWrap
     , try (keywordCase "pre-line") >> return WhSPreLine
+    ]
+
+captionSideVal :: Stream s Identity Char => ParsecT s u Identity CaptionSideVal
+captionSideVal = choice
+    [ try captionSide >>= \s -> return (CSVVal s)
+    , try (keywordCase "inherit") >> return CSVInherit
+    ]
+
+captionSide :: Stream s Identity Char => ParsecT s u Identity CaptionSide
+captionSide = choice
+    [ try (keywordCase "top") >> return CSTop
+    , try (keywordCase "bottom") >> return CSBottom
+    ]
+
+tableLayoutVal :: Stream s Identity Char => ParsecT s u Identity TableLayoutVal
+tableLayoutVal = choice
+    [ try tableLayout >>= \s -> return (TLVVal s)
+    , try (keywordCase "inherit") >> return TLVInherit
+    ]
+
+tableLayout :: Stream s Identity Char => ParsecT s u Identity TableLayout
+tableLayout = choice
+    [ try (keywordCase "auto") >> return TLAuto
+    , try (keywordCase "fixed") >> return TLFixed
+    ]
+
+borderCollapseVal :: Stream s Identity Char => ParsecT s u Identity BorderCollapseVal
+borderCollapseVal = choice
+    [ try borderCollapse >>= \s -> return (BCoVVal s)
+    , try (keywordCase "inherit") >> return BCoVInherit
+    ]
+
+borderCollapse :: Stream s Identity Char => ParsecT s u Identity BorderCollapse
+borderCollapse = choice
+    [ try (keywordCase "collapse") >> return BCoCollapse
+    , try (keywordCase "separate") >> return BCoSeparate
+    ]
+
+borderSpacingVal :: Stream s Identity Char => ParsecT s u Identity BorderSpacingVal
+borderSpacingVal = choice
+    [ try borderSpacing >>= \s -> return (BSpVVal s)
+    , try (keywordCase "inherit") >> return BSpVInherit
+    ]
+
+borderSpacing :: Stream s Identity Char => ParsecT s u Identity BorderSpacing
+borderSpacing = do
+    l1 <- lengthVal
+    spaces
+    l2 <- option l1 lengthVal
+    return (BorderSpacing l1 l2)
+
+emptyCellsVal :: Stream s Identity Char => ParsecT s u Identity EmptyCellsVal
+emptyCellsVal = choice
+    [ try emptyCells >>= \s -> return (ECVVal s)
+    , try (keywordCase "inherit") >> return ECVInherit
+    ]
+
+emptyCells :: Stream s Identity Char => ParsecT s u Identity EmptyCells
+emptyCells = choice
+    [ try (keywordCase "show") >> return ECShow
+    , try (keywordCase "hide") >> return ECHide
     ]
 
 atMedia :: Stream s Identity Char => ParsecT s u Identity AtMedia
