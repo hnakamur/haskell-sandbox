@@ -253,6 +253,12 @@ declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
     , ("font-weight", declSub fontWeightVal DeclFontWeight)
     , ("font-size", declSub fontSizeVal DeclFontSize)
     , ("font", declSub fontVal DeclFont)
+    , ("text-align", declSub textAlignVal DeclTextAlign)
+    , ("text-decoration", declSub textDecorationVal DeclTextDecoration)
+    , ("letter-spacing", declSub letterSpacingVal DeclLetterSpacing)
+    , ("word-spacing", declSub wordSpacingVal DeclWordSpacing)
+    , ("text-transform", declSub textTransformVal DeclTextTransform)
+    , ("white-space", declSub whiteSpaceVal DeclWhiteSpace)
     ]
 
 
@@ -1046,6 +1052,105 @@ fontSVW = permute (
             <|?> (Nothing, fontVariant >>= \v -> spaces >> return (Just v))
             <|?> (Nothing, fontWeight >>= \w -> spaces >> return (Just w))
           )
+
+textIndentVal :: Stream s Identity Char => ParsecT s u Identity TextIndentVal
+textIndentVal = choice
+    [ try textIndent >>= \s -> return (TIVVal s)
+    , try (keywordCase "inherit") >> return TIVInherit
+    ]
+
+textIndent :: Stream s Identity Char => ParsecT s u Identity TextIndent
+textIndent = choice
+    [ try percentage >>= \p -> return (TIPercentage p)
+    , try lengthVal >>= \l -> return (TILength l)
+    ]
+
+textAlignVal :: Stream s Identity Char => ParsecT s u Identity TextAlignVal
+textAlignVal = choice
+    [ try textAlign >>= \s -> return (TAVVal s)
+    , try (keywordCase "inherit") >> return TAVInherit
+    ]
+
+textAlign :: Stream s Identity Char => ParsecT s u Identity TextAlign
+textAlign = choice
+    [ try (keywordCase "left") >> return TALeft
+    , try (keywordCase "right") >> return TARight
+    , try (keywordCase "center") >> return TACenter
+    , try (keywordCase "justify") >> return TAJustify
+    ]
+
+textDecorationVal :: Stream s Identity Char => ParsecT s u Identity TextDecorationVal
+textDecorationVal = choice
+    [ try textDecoration >>= \s -> return (TDVVal s)
+    , try (keywordCase "inherit") >> return TDVInherit
+    ]
+
+textDecoration :: Stream s Identity Char => ParsecT s u Identity TextDecoration
+textDecoration = choice
+    [ try (keywordCase "none") >> return TDNone
+    , try textDecTypes >>= \ts -> return (TDValues ts)
+    ]
+
+textDecTypes :: Stream s Identity Char => ParsecT s u Identity [TextDecType]
+textDecTypes = oneOrMoreInAnyOrder
+    [ try (keywordCase "underline") >> spaces >> return TDTUnderline
+    , try (keywordCase "overline") >> spaces >> return TDTOverline
+    , try (keywordCase "line-through") >> spaces >> return TDTLineThrough
+    , try (keywordCase "blink") >> spaces >> return TDTBlink
+    ]
+
+letterSpacingVal :: Stream s Identity Char => ParsecT s u Identity LetterSpacingVal
+letterSpacingVal = choice
+    [ try letterSpacing >>= \s -> return (LSpVVal s)
+    , try (keywordCase "inherit") >> return LSpVInherit
+    ]
+
+letterSpacing :: Stream s Identity Char => ParsecT s u Identity LetterSpacing
+letterSpacing = choice
+    [ try (keywordCase "normal") >> return LSpNormal
+    , try lengthVal >>= \l -> return (LSpLength l)
+    ]
+
+wordSpacingVal :: Stream s Identity Char => ParsecT s u Identity WordSpacingVal
+wordSpacingVal = choice
+    [ try wordSpacing >>= \s -> return (WSpVVal s)
+    , try (keywordCase "inherit") >> return WSpVInherit
+    ]
+
+wordSpacing :: Stream s Identity Char => ParsecT s u Identity WordSpacing
+wordSpacing = choice
+    [ try (keywordCase "normal") >> return WSpNormal
+    , try lengthVal >>= \l -> return (WSpLength l)
+    ]
+
+textTransformVal :: Stream s Identity Char => ParsecT s u Identity TextTransformVal
+textTransformVal = choice
+    [ try textTransform >>= \s -> return (TTVVal s)
+    , try (keywordCase "inherit") >> return TTVInherit
+    ]
+
+textTransform :: Stream s Identity Char => ParsecT s u Identity TextTransform
+textTransform = choice
+    [ try (keywordCase "capitalize") >> return TTCapitalize
+    , try (keywordCase "uppercase") >> return TTUppercase
+    , try (keywordCase "lowercase") >> return TTLowercase
+    , try (keywordCase "none") >> return TTNone
+    ]
+
+whiteSpaceVal :: Stream s Identity Char => ParsecT s u Identity WhiteSpaceVal
+whiteSpaceVal = choice
+    [ try whiteSpace >>= \s -> return (WhSVVal s)
+    , try (keywordCase "inherit") >> return WhSVInherit
+    ]
+
+whiteSpace :: Stream s Identity Char => ParsecT s u Identity WhiteSpace
+whiteSpace = choice
+    [ try (keywordCase "normal") >> return WhSNormal
+    , try (keywordCase "pre") >> return WhSPre
+    , try (keywordCase "nowrap") >> return WhSNowrap
+    , try (keywordCase "pre-wrap") >> return WhSPreWrap
+    , try (keywordCase "pre-line") >> return WhSPreLine
+    ]
 
 atMedia :: Stream s Identity Char => ParsecT s u Identity AtMedia
 atMedia = do

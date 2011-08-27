@@ -116,7 +116,21 @@ module SandBox.Text.CSS.Types
   , AbsoluteSize(..)
   , RelativeSize(..)
   , FontVal(..)
-  , FontStyleVariantWeight(..)
+  , TextIndentVal(..)
+  , TextIndent(..)
+  , TextAlignVal(..)
+  , TextAlign(..)
+  , TextDecorationVal(..)
+  , TextDecoration(..)
+  , TextDecType(..)
+  , LetterSpacingVal(..)
+  , LetterSpacing(..)
+  , WordSpacingVal(..)
+  , WordSpacing(..)
+  , TextTransformVal(..)
+  , TextTransform(..)
+  , WhiteSpaceVal(..)
+  , WhiteSpace(..)
   , Important
   {-, tdIdent
   , tdString
@@ -862,10 +876,88 @@ data FontVal
     | FVInherit
     deriving (Eq, Ord, Show)
 
-data FontStyleVariantWeight
-    = FSVWStyle FontStyle
-    | FSVWVariant FontVariant
-    | FSVWWeight FontWeight
+data TextIndentVal
+    = TIVVal TextIndent
+    | TIVInherit
+    deriving (Eq, Ord, Show)
+
+data TextIndent
+    = TILength Length
+    | TIPercentage Percentage
+    deriving (Eq, Ord, Show)
+
+data TextAlignVal
+    = TAVVal TextAlign
+    | TAVInherit
+    deriving (Eq, Ord, Show)
+
+data TextAlign
+    = TALeft
+    | TARight
+    | TACenter
+    | TAJustify
+    deriving (Eq, Ord, Show)
+
+data TextDecorationVal
+    = TDVVal TextDecoration
+    | TDVInherit
+    deriving (Eq, Ord, Show)
+
+data TextDecoration
+    = TDNone
+    | TDValues [TextDecType]
+    deriving (Eq, Ord, Show)
+
+data TextDecType
+    = TDTUnderline
+    | TDTOverline
+    | TDTLineThrough
+    | TDTBlink
+    deriving (Eq, Ord, Show)
+
+data LetterSpacingVal
+    = LSpVVal LetterSpacing
+    | LSpVInherit
+    deriving (Eq, Ord, Show)
+
+data LetterSpacing
+    = LSpNormal
+    | LSpLength Length
+    deriving (Eq, Ord, Show)
+
+data WordSpacingVal
+    = WSpVVal WordSpacing
+    | WSpVInherit
+    deriving (Eq, Ord, Show)
+
+data WordSpacing
+    = WSpNormal
+    | WSpLength Length
+    deriving (Eq, Ord, Show)
+
+data TextTransformVal
+    = TTVVal TextTransform
+    | TTVInherit
+    deriving (Eq, Ord, Show)
+
+data TextTransform
+    = TTCapitalize
+    | TTUppercase
+    | TTLowercase
+    | TTNone
+    deriving (Eq, Ord, Show)
+
+data WhiteSpaceVal
+    = WhSVVal WhiteSpace
+    | WhSVInherit
+    deriving (Eq, Ord, Show)
+
+data WhiteSpace
+    = WhSNormal
+    | WhSPre
+    | WhSNowrap
+    | WhSPreWrap
+    | WhSPreLine
     deriving (Eq, Ord, Show)
 
 data AtMedia = AtMedia [MediaType] [Statement]
@@ -973,6 +1065,13 @@ data Declaration
     | DeclFontWeight FontWeightVal Important
     | DeclFontSize FontSizeVal Important
     | DeclFont FontVal Important
+    | DeclTextIndent TextIndentVal Important
+    | DeclTextAlign TextAlignVal Important
+    | DeclTextDecoration TextDecorationVal Important
+    | DeclLetterSpacing LetterSpacingVal Important
+    | DeclWordSpacing WordSpacingVal Important
+    | DeclTextTransform TextTransformVal Important
+    | DeclWhiteSpace WhiteSpaceVal Important
     deriving (Eq, Ord, Show)
 
 {-data Declaration = Declaration String Value
