@@ -46,6 +46,9 @@ stylesheet
 , signedPercentage
 , sign
 , signedLengthVal
+, fontFamilyList
+, fontFamily
+, fontSVW
     ) where
 
 import Control.Monad (liftM)
@@ -241,6 +244,12 @@ declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
     , ("background-attachment", declSub backgroundAttachmentVal DeclBackgroundAttachment)
     , ("background-position", declSub backgroundPositionVal DeclBackgroundPosition)
     , ("background", declSub backgroundVal DeclBackground)
+    , ("font-family", declSub fontFamilyVal DeclFontFamily)
+    , ("font-style", declSub fontStyleVal DeclFontStyle)
+    , ("font-variant", declSub fontVariantVal DeclFontVariant)
+    , ("font-weight", declSub fontWeightVal DeclFontWeight)
+    , ("font-size", declSub fontSizeVal DeclFontSize)
+    , ("font", declSub fontVal DeclFont)
     ]
 
 
@@ -411,10 +420,10 @@ boxOffsetVal = choice
 
 floatVal :: Stream s m Char => ParsecT s u m FloatVal
 floatVal = choice
-    [ try (keywordCase "left") >> return FVLeft
-    , try (keywordCase "right") >> return FVRight
-    , try (keywordCase "none") >> return FVNone
-    , try (keywordCase "inherit") >> return FVInherit
+    [ try (keywordCase "left") >> return FlVLeft
+    , try (keywordCase "right") >> return FlVRight
+    , try (keywordCase "none") >> return FlVNone
+    , try (keywordCase "inherit") >> return FlVInherit
     ]
 
 clearVal :: Stream s m Char => ParsecT s u m ClearVal
@@ -500,14 +509,19 @@ maxHeightVal = choice
     , try (keywordCase "inherit") >> return MaxHeiInherit
     ]
 
-{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
 lineHeightVal :: Stream s m Char => ParsecT s u m LineHeightVal
 lineHeightVal = choice
-    [ try (keywordCase "normal") >> return LinHeiNormal
-    , try nonNegativeNumber >>= \n -> return (LinHeiNumber n)
-    , try percentage >>= \p -> return (LinHeiPercentage p)
-    , try lengthVal >>= \l -> return (LinHeiLength l)
-    , try (keywordCase "inherit") >> return LinHeiInherit
+    [ try lineHeight >>= \h -> return (LHVVal h)
+    , try (keywordCase "inherit") >> return LHVInherit
+    ]
+
+{- NOTE: try percentage before lengthVal for "0%" to be parsed as percentage. -}
+lineHeight :: Stream s m Char => ParsecT s u m LineHeight
+lineHeight = choice
+    [ try (keywordCase "normal") >> return LHNormal
+    , try percentage >>= \p -> return (LHPercentage p)
+    , try lengthVal >>= \l -> return (LHLength l)
+    , try nonNegativeNumber >>= \n -> return (LHNumber n)
     ]
 
 nonNegativeNumber :: Stream s m Char => ParsecT s u m Double
@@ -888,6 +902,145 @@ backgroundValElems = oneOrMoreInAnyOrder
     , try backgroundRepeat >>= \r -> spaces >> return (BgVERepeat r)
     , try backgroundAttachment >>= \a -> spaces >> return (BgVEAttachment a)
     , try backgroundPosition >>= \p -> spaces >> return (BgVEPosition p)
+    ]
+
+{- NOTE: Order is significant. We must try 'inherit' first. -}
+fontFamilyVal :: Stream s m Char => ParsecT s u m FontFamilyVal
+fontFamilyVal = choice
+    [ try (keywordCase "inherit") >> return FFVInherit
+    , try fontFamilyList >>= \xs -> return (FFVValues xs)
+    ]
+
+fontFamilyList :: Stream s m Char => ParsecT s u m [FontFamily]
+fontFamilyList = sepBy1 (try fontFamily) comma
+
+fontFamily :: Stream s m Char => ParsecT s u m FontFamily
+fontFamily = choice
+    [ try genericFamily >>= \f -> return (FFGeneric f)
+    , try familyName >>= \n -> return (FFName n)
+    ]
+
+genericFamily :: Stream s m Char => ParsecT s u m GenericFamily
+genericFamily = choice
+    [ try (keywordCase "serif") >> return Serif
+    , try (keywordCase "sans-serif") >> return SansSerif
+    , try (keywordCase "cursive") >> return Cursive
+    , try (keywordCase "fantasy") >> return Fantasy
+    , try (keywordCase "monospace") >> return Monospace
+    ]
+
+familyName :: Stream s m Char => ParsecT s u m String
+familyName = choice
+    [ try identifier
+    , try stringLit
+    ]
+
+fontStyleVal :: Stream s m Char => ParsecT s u m FontStyleVal
+fontStyleVal = choice
+    [ try fontStyle >>= \s -> return (FStVVal s)
+    , try (keywordCase "inherit") >> return FStVInherit
+    ]
+
+fontStyle :: Stream s m Char => ParsecT s u m FontStyle
+fontStyle = choice
+    [ try (keywordCase "normal") >> return FStNormal
+    , try (keywordCase "italic") >> return FStItalic
+    , try (keywordCase "oblique") >> return FStOblique
+    ]
+
+fontVariantVal :: Stream s m Char => ParsecT s u m FontVariantVal
+fontVariantVal = choice
+    [ try fontVariant >>= \s -> return (FVVVal s)
+    , try (keywordCase "inherit") >> return FVVInherit
+    ]
+
+fontVariant :: Stream s m Char => ParsecT s u m FontVariant
+fontVariant = choice
+    [ try (keywordCase "normal") >> return FVNormal
+    , try (keywordCase "small-caps") >> return FVSmallCaps
+    ]
+
+fontWeightVal :: Stream s m Char => ParsecT s u m FontWeightVal
+fontWeightVal = choice
+    [ try fontWeight >>= \s -> return (FWVVal s)
+    , try (keywordCase "inherit") >> return FWVInherit
+    ]
+
+fontWeight :: Stream s m Char => ParsecT s u m FontWeight
+fontWeight = choice
+    [ try (keywordCase "normal") >> return FWNormal
+    , try (keywordCase "bold") >> return FWBold
+    , try (keywordCase "bolder") >> return FWBolder
+    , try (keywordCase "lighter") >> return FWLighter
+    , try (keyword "100") >> return FW100
+    , try (keyword "200") >> return FW200
+    , try (keyword "300") >> return FW300
+    , try (keyword "400") >> return FW400
+    , try (keyword "500") >> return FW500
+    , try (keyword "600") >> return FW600
+    , try (keyword "700") >> return FW700
+    , try (keyword "800") >> return FW800
+    , try (keyword "900") >> return FW900
+    ]
+
+fontSizeVal :: Stream s m Char => ParsecT s u m FontSizeVal
+fontSizeVal = choice
+    [ try fontSize >>= \s -> return (FSVVal s)
+    , try (keywordCase "inherit") >> return FSVInherit
+    ]
+
+fontSize :: Stream s m Char => ParsecT s u m FontSize
+fontSize = choice
+    [ try absoluteSize  >>= \s -> return (FSAbs s)
+    , try relativeSize  >>= \s -> return (FSRel s)
+    , try percentage  >>= \s -> return (FSPercentage s)
+    , try lengthVal  >>= \s -> return (FSLength s)
+    ]
+
+absoluteSize :: Stream s m Char => ParsecT s u m AbsoluteSize
+absoluteSize = choice
+    [ try (keywordCase "xx-small") >> return ASXXSmall
+    , try (keywordCase "x-small") >> return ASXSmall
+    , try (keywordCase "small") >> return ASSmall
+    , try (keywordCase "medium") >> return ASMedium
+    , try (keywordCase "large") >> return ASLarge
+    , try (keywordCase "x-large") >> return ASXLarge
+    , try (keywordCase "xx-large") >> return ASXXLarge
+    ]
+
+relativeSize :: Stream s m Char => ParsecT s u m RelativeSize
+relativeSize = choice
+    [ try (keywordCase "larger") >> return RSLarger
+    , try (keywordCase "smaller") >> return RSSmaller
+    ]
+
+fontVal :: Stream s m Char => ParsecT s u m FontVal
+fontVal = choice
+    [ try (keywordCase "caption") >> return FVCaption
+    , try (keywordCase "icon") >> return FVIcon
+    , try (keywordCase "menu") >> return FVMenu
+    , try (keywordCase "message-box") >> return FVMessageBox
+    , try (keywordCase "small-caption") >> return FVSmallCaption
+    , try (keywordCase "status-bar") >> return FVStatusBar
+    , try (keywordCase "inherit") >> return FVInherit
+    , try shorthand
+    ]
+  where
+    shorthand :: Stream s m Char => ParsecT s u m FontVal
+    shorthand = do
+        svws <- option [] fontSVW
+        sz <- fontSize
+        spaces
+        lh <- optionMaybe (symbol "/" >> lineHeight)
+        spaces
+        ffs <- fontFamilyList
+        return (FVVal svws sz lh ffs)
+
+fontSVW :: Stream s m Char => ParsecT s u m [FontStyleVariantWeight]
+fontSVW = oneOrMoreInAnyOrder
+    [ try fontStyle >>= \s -> spaces >> return (FSVWStyle s)
+    , try fontVariant >>= \v -> spaces >> return (FSVWVariant v)
+    , try fontWeight >>= \w -> spaces >> return (FSVWWeight w)
     ]
 
 atMedia :: Stream s m Char => ParsecT s u m AtMedia

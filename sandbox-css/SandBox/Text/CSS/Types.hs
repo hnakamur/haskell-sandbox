@@ -66,6 +66,7 @@ module SandBox.Text.CSS.Types
   , MinHeightVal(..)
   , MaxHeightVal(..)
   , LineHeightVal(..)
+  , LineHeight(..)
   , VerticalAlignVal(..)
   , OverflowVal(..)
   , ClipVal(..)
@@ -101,6 +102,21 @@ module SandBox.Text.CSS.Types
   , VertPos(..)
   , BackgroundVal(..)
   , BackgroundValElem(..)
+  , FontFamilyVal(..)
+  , FontFamily(..)
+  , GenericFamily(..)
+  , FontStyleVal(..)
+  , FontStyle(..)
+  , FontVariantVal(..)
+  , FontVariant(..)
+  , FontWeightVal(..)
+  , FontWeight(..)
+  , FontSizeVal(..)
+  , FontSize(..)
+  , AbsoluteSize(..)
+  , RelativeSize(..)
+  , FontVal(..)
+  , FontStyleVariantWeight(..)
   , Important
   {-, tdIdent
   , tdString
@@ -425,11 +441,12 @@ data BoxOffsetVal = BOVLength Length
                   | BOVInherit
                   deriving (Eq, Ord, Show)
 
-data FloatVal = FVLeft
-              | FVRight
-              | FVNone
-              | FVInherit
-              deriving (Eq, Ord, Show)
+data FloatVal
+     = FlVLeft
+     | FlVRight
+     | FlVNone
+     | FlVInherit
+     deriving (Eq, Ord, Show)
 
 data ClearVal = CleNone
               | CleLeft
@@ -497,11 +514,15 @@ data MaxHeightVal
     deriving (Eq, Ord, Show)
 
 data LineHeightVal
-    = LinHeiNormal
-    | LinHeiNumber Double
-    | LinHeiLength Length
-    | LinHeiPercentage Percentage
-    | LinHeiInherit
+    = LHVVal LineHeight
+    | LHVInherit
+    deriving (Eq, Ord, Show)
+
+data LineHeight
+    = LHNormal
+    | LHNumber Double
+    | LHLength Length
+    | LHPercentage Percentage
     deriving (Eq, Ord, Show)
 
 data VerticalAlignVal
@@ -741,6 +762,111 @@ data BackgroundValElem
     | BgVEPosition BackgroundPositionVal
     deriving (Eq, Ord, Show)
 
+data FontFamilyVal
+    = FFVValues [FontFamily]
+    | FFVInherit
+    deriving (Eq, Ord, Show)
+
+data FontFamily
+    = FFName String
+    | FFGeneric GenericFamily
+    deriving (Eq, Ord, Show)
+
+data GenericFamily
+    = Serif
+    | SansSerif
+    | Cursive
+    | Fantasy
+    | Monospace
+    deriving (Eq, Ord, Show)
+
+data FontStyleVal
+    = FStVVal FontStyle
+    | FStVInherit
+    deriving (Eq, Ord, Show)
+
+data FontStyle
+    = FStNormal
+    | FStItalic
+    | FStOblique
+    deriving (Eq, Ord, Show)
+
+data FontVariantVal
+    = FVVVal FontVariant
+    | FVVInherit
+    deriving (Eq, Ord, Show)
+
+data FontVariant
+    = FVNormal
+    | FVSmallCaps
+    deriving (Eq, Ord, Show)
+
+data FontWeightVal
+    = FWVVal FontWeight
+    | FWVInherit
+    deriving (Eq, Ord, Show)
+
+data FontWeight
+    = FWNormal
+    | FWBold
+    | FWBolder
+    | FWLighter
+    | FW100
+    | FW200
+    | FW300
+    | FW400
+    | FW500
+    | FW600
+    | FW700
+    | FW800
+    | FW900
+    | FWInherit
+    deriving (Eq, Ord, Show)
+
+data FontSizeVal
+    = FSVVal FontSize
+    | FSVInherit
+    deriving (Eq, Ord, Show)
+
+data FontSize
+    = FSAbs AbsoluteSize
+    | FSRel RelativeSize
+    | FSLength Length
+    | FSPercentage Percentage
+    deriving (Eq, Ord, Show)
+
+data AbsoluteSize
+    = ASXXSmall
+    | ASXSmall
+    | ASSmall
+    | ASMedium
+    | ASLarge
+    | ASXLarge
+    | ASXXLarge
+    deriving (Eq, Ord, Show)
+
+data RelativeSize
+    = RSLarger
+    | RSSmaller
+    deriving (Eq, Ord, Show)
+
+data FontVal
+    = FVVal [FontStyleVariantWeight] FontSize (Maybe LineHeight) [FontFamily]
+    | FVCaption
+    | FVIcon
+    | FVMenu
+    | FVMessageBox
+    | FVSmallCaption
+    | FVStatusBar
+    | FVInherit
+    deriving (Eq, Ord, Show)
+
+data FontStyleVariantWeight
+    = FSVWStyle FontStyle
+    | FSVWVariant FontVariant
+    | FSVWWeight FontWeight
+    deriving (Eq, Ord, Show)
+
 data AtMedia = AtMedia [MediaType] [Statement]
              deriving (Eq, Ord, Show)
 
@@ -840,6 +966,12 @@ data Declaration
     | DeclBackgroundAttachment BackgroundAttachmentVal Important
     | DeclBackgroundPosition BackgroundPositionVal Important
     | DeclBackground BackgroundVal Important
+    | DeclFontFamily FontFamilyVal Important
+    | DeclFontStyle FontStyleVal Important
+    | DeclFontVariant FontVariantVal Important
+    | DeclFontWeight FontWeightVal Important
+    | DeclFontSize FontSizeVal Important
+    | DeclFont FontVal Important
     deriving (Eq, Ord, Show)
 
 {-data Declaration = Declaration String Value

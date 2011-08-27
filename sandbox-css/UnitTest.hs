@@ -59,6 +59,14 @@ tests = test
         stylesheet
         "ul { list-style: upper-roman inside }"
         [RuleSet [SimpleSel (TypeSel "ul" [])] [DeclListStyle (LSVValues [LSVEType LSTUpperRoman,LSVEPosition LSPInside]) False]]
+    , testParse
+        fontSVW
+        "italic small-caps normal"
+        [FSVWStyle FStItalic,FSVWVariant FVSmallCaps, FSVWWeight FWNormal]
+    , testParse
+        fontSVW
+        "normal small-caps italic"
+        [FSVWWeight FWNormal,FSVWVariant FVSmallCaps, FSVWStyle FStItalic]
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "abc" "abc"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "acb" "acb"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "cab" "cab"
