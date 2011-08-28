@@ -1,10 +1,10 @@
 module SandBox.Text.CSS.Types
   ( EncodingName
+  , AtRule(..)
   , AtCharset(..)
   , AtImport(..)
   , AtMedia(..)
   , Id
-  , TokenData(..)
   , StyleSheet(..)
   , Statement(..)
   , Selector(..)
@@ -17,18 +17,12 @@ module SandBox.Text.CSS.Types
   , AttrSel(..)
   , AttrName
   , AttrVal
-  , AtKeyword(..)
-  , Any(..)
-  , Block(..)
-  , BlockElem(..)
   , Declaration(..)
-  , Value(..)
-  , ValueElem(..)
   , Color(..)
   , Length(..)
   , LengthUnit(..)
   , Percentage(..)
-  , URI(..)
+  , URI
   , PVWhiteSpace(..)
   , BasicColorKeyword(..)
   , toRGBColor
@@ -157,11 +151,28 @@ import qualified Data.Map as M (Map, fromList, lookup)
 
 type EncodingName = String
 
-data AtCharset = AtCharset EncodingName
-               deriving (Eq, Ord, Show)
+data AtRule
+    = ARCharset AtCharset
+    | ARImport AtImport
+    | ARMedia AtMedia
+    | ARPage AtPage
+    deriving (Eq, Ord, Show)
 
-data AtImport = AtImport URI [MediaType]
-              deriving (Eq, Ord, Show)
+data AtCharset
+    = AtCharset EncodingName
+    deriving (Eq, Ord, Show)
+
+data AtImport
+    = AtImport URI [MediaType]
+    deriving (Eq, Ord, Show)
+
+data AtMedia
+    = AtMedia [MediaType] [Statement]
+    deriving (Eq, Ord, Show)
+
+data AtPage
+    = AtPage (Maybe PageSelector) [Declaration]
+    deriving (Eq, Ord, Show)
 
 data Color = BasicNamedColor BasicColorKeyword
            | RGBColor Int Int Int
@@ -259,7 +270,7 @@ data StyleSheet = StyleSheet [Statement]
                 deriving (Eq, Ord, Show)
 
 data Statement = RuleSet [Selector] [Declaration]
-               | AtRule AtKeyword [Any] (Maybe Block)
+               | SAtRule AtRule
                deriving (Eq, Ord, Show)
 
 data Selector = SimpleSel SimpleSel
@@ -354,13 +365,6 @@ mediaTypeAssocList =
 
 toLowerStr :: String -> String
 toLowerStr = map toLower
-
-{-data AttrVal = AttrValStr String
-             | AttrValId String
-             deriving (Eq, Ord, Show)-}
-
-data AtPage = AtPage (Maybe PageSelector) [Declaration]
-            deriving (Eq, Ord, Show)
 
 data PageSelector = PSFirst
                   | PSLeft
@@ -1019,31 +1023,6 @@ data EmptyCells
     | ECHide
     deriving (Eq, Ord, Show)
 
-data AtMedia = AtMedia [MediaType] [Statement]
-             deriving (Eq, Ord, Show)
-
-data AtKeyword = AtKeyword String
-               deriving (Eq, Ord, Show)
-
-data Any = Ident String
-         | Number String
-         {-| Percentage String-}
-         | Dimension String String
-         | CSSString String
-         {-| URI String-}
-         | Hash String
-         | UnicodeRange Char Char
-         | Colon
-         deriving (Eq, Ord, Show)
-
-data Block = Block [BlockElem]
-           deriving (Eq, Ord, Show)
-
-data BlockElem = BEAny Any
-               | BEBlock Block
-               | BEAtKeyword AtKeyword
-               deriving (Eq, Ord, Show)
-
 
 data Declaration
     = DeclMargin [MarginVal] Important
@@ -1138,43 +1117,3 @@ data Declaration
     | DeclEmptyCells EmptyCellsVal Important
     deriving (Eq, Ord, Show)
 
-{-data Declaration = Declaration String Value
-                 deriving (Eq, Ord, Show)-}
-
-data Value = Value [ValueElem]
-           deriving (Eq, Ord, Show)
-
-data ValueElem = VEAny Any
-               | VEBlock Block
-               | VEAtKeyword AtKeyword
-               deriving (Eq, Ord, Show)
-
-data TokenData =
-      Function String
-    deriving (Eq, Ord, Show)
-
-{-tdIdent :: TokenData -> String
-tdIdent (Ident i) = i
-tdIdent (AtKeyword i) = i
-tdIdent (Dimension _ i) = i
-tdIdent (Function i) = i
-
-tdString :: TokenData -> String
-tdString (CSSString s) = s
-
-tdNum :: TokenData -> String
-tdNum (Percentage n) = n
-tdNum (Number n) = n
-tdNum (Dimension n _) = n
-
-tdName :: TokenData -> String
-tdName (Hash n) = n
-
-tdURI :: TokenData -> String
-tdURI (URI s) = s
-
-tdStart :: TokenData -> Char
-tdStart (UnicodeRange s _) = s
-
-tdEnd :: TokenData -> Char
-tdEnd (UnicodeRange _ e) = e-}

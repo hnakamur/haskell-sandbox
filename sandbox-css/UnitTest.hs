@@ -74,6 +74,12 @@ tests = test
                (FSLength (Length 12.0 (Just Px)))
                (Just (LHLength (Length 14.0 (Just Px))))
                [FFGeneric Serif])
+    , testParse
+        stylesheet
+        "@media print { h1{page-break-before:always} }"
+        [SAtRule (ARMedia (AtMedia [MTPrint]
+            [RuleSet [SimpleSel (TypeSel "h1" [])]
+            [DeclPageBreakBefore PBBVAlways False]]))]
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "abc" "abc"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "acb" "acb"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "cab" "cab"

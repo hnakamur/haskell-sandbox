@@ -6,10 +6,6 @@ stylesheet
 , selector
 , atRule
 , declaration
-, value
-, block
-, atKeyword
-, any
 , uri
 , ident
 , name
@@ -50,7 +46,6 @@ stylesheet
 , fontFamily
 , fontSVW
 , fontVal
-, perm0
     ) where
 
 import Control.Monad (liftM)
@@ -75,14 +70,17 @@ stylesheet = do
     many statement
 
 statement :: Stream s Identity Char => ParsecT s u Identity Statement
-statement = atRule <|> ruleSet
+statement =
+    (atRule >>= \r -> return (SAtRule r))
+    <|> ruleSet
 
-atRule :: Stream s Identity Char => ParsecT s u Identity Statement
-atRule = do
-    k <- atKeyword
-    xs <- many (spaces >> any)
-    b <- (optionMaybe (try (spaces >> block)) <|> return Nothing)
-    return (AtRule k xs b)
+atRule :: Stream s Identity Char => ParsecT s u Identity AtRule
+atRule = choice
+    [ try atCharset >>= \a -> spaces >> return (ARCharset a)
+    , try atImport >>= \a -> spaces >> return (ARImport a)
+    , try atMedia >>= \a -> spaces >> return (ARMedia a)
+    , try atPage >>= \a -> spaces >> return (ARPage a)
+    ]
 
 atCharset :: Stream s Identity Char => ParsecT s u Identity AtCharset
 atCharset = do
@@ -1388,38 +1386,6 @@ colon = symbol ":"
 strCase :: Stream s Identity Char => String -> ParsecT s u Identity String
 strCase [] = return []
 strCase s@(c:cs) = satisfy (charCaseEq c) >> strCase cs >> return s
-
-{-css21Style :: P.LanguageDef st
-css21Style = emptyDef
-               { P.commentStart = "/*"
-               , P.commentEnd = "*/"
-               , P.nestedComments = False
-               , P.caseSensitive = False
-               }
-
-css21Style :: Stream s Identity Char => P.GenLanguageDef s u m
-css21Style = P.LanguageDef
-               { P.commentStart = "/*"
-               , P.commentEnd = "*/"
-               , P.commentLine = ""
-               , P.nestedComments = False
-               , P.identStart = asciiAlpha
-               , P.identLetter = alphaNum
-               , P.opStart = P.opLetter css21Style
-               , P.opLetter = oneOf "+>"
-               , P.reservedOpNames = []
-               , P.reservedNames = []
-               , P.caseSensitive = False
-               }
-
-lexer :: P.TokenParser ()
-lexer :: Stream s Identity Char => ParsecT s u Identity String
-lexer = P.makeTokenParser css21Style
-lexer = P.TokenParser
-
-braces :: Stream s Identity Char => ParsecT s u Identity a -> ParsecT s u Identity a
-braces :: ParsecT String () Identity a -> ParsecT String () Identity a
-braces = P.braces lexer-}
          
 color :: Stream s Identity Char => ParsecT s u Identity Color
 color = hashColor <|> basicNamedColor
@@ -1455,76 +1421,12 @@ basicNamedColor = do
 asciiAlpha :: Stream s Identity Char => ParsecT s u Identity Char
 asciiAlpha = satisfy isAsciiAlpha
 
-value :: Stream s Identity Char => ParsecT s u Identity Value
-value = do
-    xs <- many1 valueElem
-    return (Value xs)
-
-valueElem :: Stream s Identity Char => ParsecT s u Identity ValueElem
-valueElem =
-    choice [ do{ a <- try any; return (VEAny a) }
-           , do{ b <- try block; return (VEBlock b) }
-           , do{ k <- atKeyword; return (VEAtKeyword k) }
-           ]
-
-block :: Stream s Identity Char => ParsecT s u Identity Block
-block = do
-    xs <- between (char '{' >> spaces) (char '}' >> spaces)
-                  (many blockElem)
-    return (Block xs)
-
-blockElem :: Stream s Identity Char => ParsecT s u Identity BlockElem
-blockElem = do
-    e <- choice [ do{ a <- try any; return (BEAny a) }
-                , do{ b <- try block; return (BEBlock b) }
-                , do{ k <- atKeyword; return (BEAtKeyword k) }
-                ]
-    spaces
-    return e
-
-any :: Stream s Identity Char => ParsecT s u Identity Any
-any = do
-    a <- choice [ try identifier >>= \i -> return (Ident i)
-                , try stringLit >>= \s -> return (CSSString s)
-                {-, try percentage-}
-                , try dimension
-                , try number
-                {-, try uri-}
-                , try hash
-                , try (symbol ":") >>= \s -> return Colon
-                ]
-    spaces
-    return a
-
 
 identifier :: Stream s Identity Char => ParsecT s u Identity String
 identifier = lexeme ident
 
 stringLit :: Stream s Identity Char => ParsecT s u Identity String
 stringLit = lexeme string
-
-atKeyword :: Stream s Identity Char => ParsecT s u Identity AtKeyword
-atKeyword = do
-    char '@'
-    i <- ident
-    return (AtKeyword i)
-
-hash :: Stream s Identity Char => ParsecT s u Identity Any
-hash = do
-    char '#'
-    n <- name
-    return (Hash n)
-
-number :: Stream s Identity Char => ParsecT s u Identity Any
-number = do
-    n <- num
-    return (Number n)
-
-dimension :: Stream s Identity Char => ParsecT s u Identity Any
-dimension = do
-    n <- num
-    i <- ident
-    return (Dimension n i)
 
 uri :: Stream s Identity Char => ParsecT s u Identity URI
 uri = do
@@ -1737,10 +1639,3 @@ spaces = many space
 
 space :: Stream s Identity Char => ParsecT s u Identity Char
 space = satisfy isSpaceChar
-
-
-perm0 :: Stream s Identity Char => ParsecT s u Identity (Char, Char, Char)
-perm0 = permute ((,,) <$?> ('_', oneOf "na")
-                      <|?> ('_', oneOf "nb")
-                      <|?> ('_', oneOf "nc"))
-
