@@ -262,6 +262,11 @@ declSubMap = M.fromList $ map (\(k, v) -> (k, v k))
     , ("border-collapse", declSub borderCollapseVal DeclBorderCollapse)
     , ("border-spacing", declSub borderSpacingVal DeclBorderSpacing)
     , ("empty-cells", declSub emptyCellsVal DeclEmptyCells)
+    , ("cursor", declSub cursorVal DeclCursor)
+    , ("outline", declSub outlineVal DeclOutline)
+    , ("outline-width", declSub outlineWidthVal DeclOutlineWidth)
+    , ("outline-style", declSub outlineStyleVal DeclOutlineStyle)
+    , ("outline-color", declSub outlineColorVal DeclOutlineColor)
     ]
 
 
@@ -770,8 +775,8 @@ pageBreakInsideVal = choice
 
 orphansVal :: Stream s Identity Char => ParsecT s u Identity OrphansVal
 orphansVal = choice
-    [ try positiveIntNoSign >>= \n -> return (OVInt n)
-    , try (keywordCase "inherit") >> return OVInherit
+    [ try positiveIntNoSign >>= \n -> return (OrpVInt n)
+    , try (keywordCase "inherit") >> return OrpVInherit
     ]
 
 widowsVal :: Stream s Identity Char => ParsecT s u Identity WidowsVal
@@ -1214,6 +1219,104 @@ emptyCells :: Stream s Identity Char => ParsecT s u Identity EmptyCells
 emptyCells = choice
     [ try (keywordCase "show") >> return ECShow
     , try (keywordCase "hide") >> return ECHide
+    ]
+
+cursorVal :: Stream s Identity Char => ParsecT s u Identity CursorVal
+cursorVal = choice
+    [ try cursor >>= \s -> return (CuVVal s)
+    , try (keywordCase "inherit") >> return CuVInherit
+    ]
+
+cursor :: Stream s Identity Char => ParsecT s u Identity Cursor
+cursor = do
+    uris <- many ((lexeme uri) >>= \uri -> comma >> return uri)
+    t <- cursorType
+    return (Cursor uris t)
+
+cursorType :: Stream s Identity Char => ParsecT s u Identity CursorType
+cursorType = choice
+    [ try (keywordCase "auto") >> return CuTAuto
+    , try (keywordCase "crosshair") >> return CuTCrosshair
+    , try (keywordCase "default") >> return CuTDefault
+    , try (keywordCase "pointer") >> return CuTPointer
+    , try (keywordCase "move") >> return CuTMove
+    , try (keywordCase "e-resize") >> return CuTEResize
+    , try (keywordCase "ne-resize") >> return CuTNeResize
+    , try (keywordCase "nw-resize") >> return CuTNwResize
+    , try (keywordCase "n-resize") >> return CuTNResize
+    , try (keywordCase "se-resize") >> return CuTSeResize
+    , try (keywordCase "sw-resize") >> return CuTSwResize
+    , try (keywordCase "s-resize") >> return CuTSResize
+    , try (keywordCase "w-resize") >> return CuTWResize
+    , try (keywordCase "text") >> return CuTText
+    , try (keywordCase "wait") >> return CuTWait
+    , try (keywordCase "help") >> return CuTHelp
+    , try (keywordCase "progress") >> return CuTProgress
+    ]
+
+outlineVal :: Stream s Identity Char => ParsecT s u Identity OutlineVal
+outlineVal = choice
+    [ try outline >>= \w -> return (OVVal w)
+    , try (keywordCase "inherit") >> return OVInherit
+    ]
+
+outline :: Stream s Identity Char => ParsecT s u Identity Outline
+outline = permute (
+              (,,)
+              <$?> (Nothing, lexeme outlineColor >>= \c -> return (Just c))
+              <|?> (Nothing, lexeme outlineStyle >>= \s -> return (Just s))
+              <|?> (Nothing, lexeme outlineWidth >>= \w -> return (Just w))
+          ) >>= f
+        where
+          f :: Stream s Identity Char =>
+               (Maybe OutlineColor, Maybe OutlineStyle, Maybe OutlineWidth) ->
+               ParsecT s u Identity Outline
+          f (Nothing,Nothing,Nothing) = fail "One or more of outline-color, outline-style or outline-width values are needed."
+          f (c,s,w) = return (Outline c s w)
+
+outlineWidthVal :: Stream s Identity Char => ParsecT s u Identity OutlineWidthVal
+outlineWidthVal = choice
+    [ try outlineWidth >>= \w -> return (OWVWidth w)
+    , try (keywordCase "inherit") >> return OWVInherit
+    ]
+
+outlineWidth :: Stream s Identity Char => ParsecT s u Identity OutlineWidth
+outlineWidth = choice
+    [ try (keywordCase "thin") >> return OWThin
+    , try (keywordCase "medium") >> return OWMedium
+    , try (keywordCase "thick") >> return OWThick
+    , try lengthVal >>= \l -> return (OWLength l)
+    ]
+
+outlineStyleVal :: Stream s Identity Char => ParsecT s u Identity OutlineStyleVal
+outlineStyleVal = choice
+    [ try outlineStyle >>= \w -> return (OSVStyle w)
+    , try (keywordCase "inherit") >> return OSVInherit
+    ]
+
+outlineStyle :: Stream s Identity Char => ParsecT s u Identity OutlineStyle
+outlineStyle = choice
+    [ try (keywordCase "none") >> return OSNone
+    , try (keywordCase "dotted") >> return OSDotted
+    , try (keywordCase "dashed") >> return OSDashed
+    , try (keywordCase "solid") >> return OSSolid
+    , try (keywordCase "double") >> return OSDouble
+    , try (keywordCase "groove") >> return OSGroove
+    , try (keywordCase "ridge") >> return OSRidge
+    , try (keywordCase "inset") >> return OSInset
+    , try (keywordCase "outset") >> return OSOutset
+    ]
+
+outlineColorVal :: Stream s Identity Char => ParsecT s u Identity OutlineColorVal
+outlineColorVal = choice
+    [ try outlineColor >>= \w -> return (OCVColor w)
+    , try (keywordCase "inherit") >> return OCVInherit
+    ]
+
+outlineColor :: Stream s Identity Char => ParsecT s u Identity OutlineColor
+outlineColor = choice
+    [ try color >>= \c -> return (OCColor c)
+    , try (keywordCase "invert") >> return OCInvert
     ]
 
 atMedia :: Stream s Identity Char => ParsecT s u Identity AtMedia

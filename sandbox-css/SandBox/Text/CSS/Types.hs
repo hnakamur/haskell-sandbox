@@ -135,6 +135,17 @@ module SandBox.Text.CSS.Types
   , BorderSpacing(..)
   , EmptyCellsVal(..)
   , EmptyCells(..)
+  , CursorVal(..)
+  , Cursor(..)
+  , CursorType(..)
+  , OutlineVal(..)
+  , Outline(..)
+  , OutlineWidthVal(..)
+  , OutlineWidth(..)
+  , OutlineStyleVal(..)
+  , OutlineStyle(..)
+  , OutlineColorVal(..)
+  , OutlineColor(..)
   , Important
   {-, tdIdent
   , tdString
@@ -390,43 +401,48 @@ data PaddingWidth = PWLength Length
                   deriving (Eq, Ord, Show)
 
 
-data BorderWidthVal = BWVWidth BorderWidth
-                    | BWVInherit
-                    deriving (Eq, Ord, Show)
+data BorderWidthVal
+    = BWVWidth BorderWidth
+    | BWVInherit
+    deriving (Eq, Ord, Show)
 
-data BorderWidth = BWLength Length
-                 | BWThin
-                 | BWMedium
-                 | BWThick
-                 deriving (Eq, Ord, Show)
-
-
-
-data BorderColorVal = BCVColor BorderColor
-                    | BCVInherit
-                    deriving (Eq, Ord, Show)
-
-data BorderColor = BCColor Color
-                 | BCTransparent
-                 deriving (Eq, Ord, Show)
+data BorderWidth
+    = BWLength Length
+    | BWThin
+    | BWMedium
+    | BWThick
+    deriving (Eq, Ord, Show)
 
 
+data BorderColorVal
+    = BCVColor BorderColor
+    | BCVInherit
+    deriving (Eq, Ord, Show)
 
-data BorderStyleVal = BSVStyle BorderStyle
-                    | BSVInherit
-                    deriving (Eq, Ord, Show)
+data BorderColor
+    = BCColor Color
+    | BCTransparent
+    deriving (Eq, Ord, Show)
 
-data BorderStyle = BSNone
-                 | BSHidden
-                 | BSDotted
-                 | BSDashed
-                 | BSSolid
-                 | BSDouble
-                 | BSGroove
-                 | BSRidge
-                 | BSInset
-                 | BSOutset
-                 deriving (Eq, Ord, Show)
+
+
+data BorderStyleVal
+    = BSVStyle BorderStyle
+    | BSVInherit
+    deriving (Eq, Ord, Show)
+
+data BorderStyle
+    = BSNone
+    | BSHidden
+    | BSDotted
+    | BSDashed
+    | BSSolid
+    | BSDouble
+    | BSGroove
+    | BSRidge
+    | BSInset
+    | BSOutset
+    deriving (Eq, Ord, Show)
 
 
 data BorderVal = BVBorder [BorderValElem]
@@ -716,8 +732,8 @@ data PageBreakInsideVal
     deriving (Eq, Ord, Show)
 
 data OrphansVal
-    = OVInt Int
-    | OVInherit
+    = OrpVInt Int
+    | OrpVInherit
     deriving (Eq, Ord, Show)
 
 data WidowsVal
@@ -1023,6 +1039,88 @@ data EmptyCells
     | ECHide
     deriving (Eq, Ord, Show)
 
+data CursorVal
+    = CuVVal Cursor
+    | CuVInherit
+    deriving (Eq, Ord, Show)
+
+data Cursor
+    = Cursor [URI] CursorType
+    deriving (Eq, Ord, Show)
+
+data CursorType
+    = CuTAuto
+    | CuTCrosshair
+    | CuTDefault
+    | CuTPointer
+    | CuTMove
+    | CuTEResize
+    | CuTNeResize
+    | CuTNwResize
+    | CuTNResize
+    | CuTSeResize
+    | CuTSwResize
+    | CuTSResize
+    | CuTWResize
+    | CuTText
+    | CuTWait
+    | CuTHelp
+    | CuTProgress
+    deriving (Eq, Ord, Show)
+
+
+data OutlineVal
+    = OVVal Outline
+    | OVInherit
+    deriving (Eq, Ord, Show)
+
+data Outline
+    = Outline (Maybe OutlineColor) (Maybe OutlineStyle) (Maybe OutlineWidth)
+    deriving (Eq, Ord, Show)
+
+data OutlineWidthVal
+    = OWVWidth OutlineWidth
+    | OWVInherit
+    deriving (Eq, Ord, Show)
+
+data OutlineWidth
+    = OWLength Length
+    | OWThin
+    | OWMedium
+    | OWThick
+    deriving (Eq, Ord, Show)
+
+
+data OutlineStyleVal
+    = OSVStyle OutlineStyle
+    | OSVInherit
+    deriving (Eq, Ord, Show)
+
+data OutlineStyle
+    = OSNone
+    | OSDotted
+    | OSDashed
+    | OSSolid
+    | OSDouble
+    | OSGroove
+    | OSRidge
+    | OSInset
+    | OSOutset
+    deriving (Eq, Ord, Show)
+
+
+data OutlineColorVal
+    = OCVColor OutlineColor
+    | OCVInherit
+    deriving (Eq, Ord, Show)
+
+data OutlineColor
+    = OCColor Color
+    | OCInvert
+    deriving (Eq, Ord, Show)
+
+
+
 
 data Declaration
     = DeclMargin [MarginVal] Important
@@ -1115,5 +1213,10 @@ data Declaration
     | DeclBorderCollapse BorderCollapseVal Important
     | DeclBorderSpacing BorderSpacingVal Important
     | DeclEmptyCells EmptyCellsVal Important
+    | DeclCursor CursorVal Important
+    | DeclOutline OutlineVal Important
+    | DeclOutlineWidth OutlineWidthVal Important
+    | DeclOutlineStyle OutlineStyleVal Important
+    | DeclOutlineColor OutlineColorVal Important
     deriving (Eq, Ord, Show)
 

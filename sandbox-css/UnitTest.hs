@@ -80,6 +80,11 @@ tests = test
         [SAtRule (ARMedia (AtMedia [MTPrint]
             [RuleSet [SimpleSel (TypeSel "h1" [])]
             [DeclPageBreakBefore PBBVAlways False]]))]
+    , testParse
+        stylesheet
+        "button{outline: thick solid}"
+        [RuleSet [SimpleSel (TypeSel "button" [])]
+            [DeclOutline (OVVal (Outline Nothing (Just OSSolid) (Just OWThick)))                         False]]
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "abc" "abc"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "acb" "acb"
     , testParse (allInAnyOrder [char 'a', char 'b', char 'c']) "cab" "cab"
